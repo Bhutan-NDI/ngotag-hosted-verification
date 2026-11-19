@@ -1,48 +1,48 @@
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { config } from "@/lib/server/config";
+import { createMockSession } from "@/lib/server/mockPlatform";
 
 export const dynamic = "force-dynamic";
 
 /**
- * The hosted page has no landing page — users only arrive via /v/<id>.
- * In mock mode this shows a small developer launcher instead.
+ * The hosted page has no landing page — users arrive via a relying party's
+ * `hostedPageUrl` (/v/<hostedId>). With MOCK_PLATFORM on, "/" plays the relying
+ * party: it creates a mock request and opens its page (the QR code appears at
+ * once), and it is also the mock redirectUri the page returns to.
  */
 export default async function Home({
   searchParams,
 }: {
-  searchParams: Promise<{ status?: string; session_id?: string }>;
+  searchParams: Promise<{ response_code?: string; error?: string; ttl?: string }>;
 }) {
-  if (!config.mock) notFound();
-  const { status, session_id } = await searchParams;
+  if (!config.mockPlatform) notFound();
+  const { response_code, ttl } = await searchParams;
+
+  // No code: create a fresh request. That is also what a relying party may do on a
+  // return with error=expired, since the user has just clicked "Start again" (DL-013, DL-017).
+  if (!response_code) {
+    const seconds = Math.min(Math.max(Number(ttl) || 600, 10), 3600); // ?ttl=30 to test expiry
+    redirect(`/v/${createMockSession(seconds)}`);
+  }
 
   return (
-    <main className="flex min-h-dvh items-center justify-center px-4 py-10">
-      <section className="w-full max-w-[420px] rounded-2xl border border-line bg-surface px-6 py-8 sm:px-8">
-        <p className="text-xs font-semibold uppercase tracking-wide text-subtle">Developer · mock NDI</p>
-        <h1 className="mt-2 text-xl font-semibold tracking-tight">Bhutan NDI hosted page</h1>
-
-        {status && (
-          <p className="mt-4 rounded-xl bg-neutral-soft px-4 py-3 text-sm">
-            Last session returned <span className="font-semibold">{status}</span>
-            {session_id && <span className="block truncate text-xs text-subtle">{session_id}</span>}
-          </p>
-        )}
-
-        <div className="mt-6 space-y-3">
-          <a
-            href="/api/dev/start"
-            className="inline-flex h-12 w-full items-center justify-center rounded-xl bg-primary text-[15px] font-semibold text-white hover:bg-primary-hover"
-          >
-            Start a test session
-          </a>
-          <Link
-            href="/preview"
-            className="inline-flex h-12 w-full items-center justify-center rounded-xl border border-line text-[15px] font-semibold text-ink hover:bg-neutral-soft"
-          >
-            View all screens
-          </Link>
-        </div>
+    <main className="flex min-h-dvh items-center justify-center px-3 py-10 min-[380px]:px-4">
+      <section className="w-full max-w-[420px] rounded-2xl border border-line bg-surface px-5 py-8 min-[380px]:px-6 sm:px-8">
+        <p className="text-xs font-semibold uppercase tracking-wide text-muted">Developer · mock relying party</p>
+        <h1 className="mt-2 text-xl font-semibold tracking-tight">Returned with a response_code</h1>
+        <p className="mt-4 break-all rounded-xl bg-canvas px-4 py-3 font-mono text-xs">{response_code}</p>
+        <p className="mt-3 text-sm text-muted">
+          A real relying party now exchanges this code server-to-server for the result.
+        </p>
+        {/* No prefetch: loading "/" creates a mock request. */}
+        <Link
+          href="/"
+          prefetch={false}
+          className="mt-6 inline-flex h-12 w-full items-center justify-center rounded-xl bg-primary text-[15px] font-semibold text-white hover:bg-primary-hover"
+        >
+          Start a new request
+        </Link>
       </section>
     </main>
   );

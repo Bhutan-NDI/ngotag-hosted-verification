@@ -1,0 +1,16 @@
+<svg preserveAspectRatio="none" overflow="visible" style="display: block;" width="56" height="56" viewBox="0 0 56 56" fill="none" xmlns="http://www.w3.org/2000/svg">
+<g id="Icon &#226;&#128;&#148; hourglass" clip-path="url(#clip0_0_4)">
+<path id="Vector" d="M28 56C43.464 56 56 43.464 56 28C56 12.536 43.464 0 28 0C12.536 0 0 12.536 0 28C0 43.464 12.536 56 28 56Z" fill="#E3F4EC"/>
+<g id="icon/hourglass">
+<path id="Vector_2" d="M19.8333 39.6667H36.1667" stroke-width="2.33333" stroke-linecap="round" stroke-linejoin="round" stroke="#124143"/>
+<path id="Vector_3" d="M19.8333 16.3333H36.1667" stroke-width="2.33333" stroke-linecap="round" stroke-linejoin="round" stroke="#124143"/>
+<path id="Vector_4" d="M33.8333 39.6667V34.7993C33.8332 34.1805 33.5873 33.5871 33.1497 33.1497L28 28L22.8503 33.1497C22.4127 33.5871 22.1668 34.1805 22.1667 34.7993V39.6667" stroke-width="2.33333" stroke-linecap="round" stroke-linejoin="round" stroke="#124143"/>
+<path id="Vector_5" d="M22.1667 16.3333V21.2007C22.1668 21.8195 22.4127 22.4129 22.8503 22.8503L28 28L33.1497 22.8503C33.5873 22.4129 33.8332 21.8195 33.8333 21.2007V16.3333" stroke-width="2.33333" stroke-linecap="round" stroke-linejoin="round" stroke="#124143"/>
+</g>
+</g>
+<defs>
+<clipPath id="clip0_0_4">
+<rect width="56" height="56" fill="white"/>
+</clipPath>
+</defs>
+</svg>

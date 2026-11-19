@@ -1,80 +1,126 @@
 "use client";
 
 import { useCallback, useEffect, useReducer, useRef } from "react";
-import { flowReducer, initialFlow, isLive } from "@/lib/flow";
-import type { DeviceMode, PublicSession } from "@/lib/types";
-import { DevPanel } from "./DevPanel";
+import { flowReducer, initialFlow, isTerminal } from "@/lib/flow";
+import { fetchHostedRequest, fetchHostedStatus, NotFoundError } from "@/lib/platform";
+import type { DeviceMode } from "@/lib/types";
 import { Frame, StateView } from "./views";
 
+/** Polling rules (DL-008). */
+const FAST_POLL_MS = 2000; // first minute
+const SLOW_POLL_MS = 4000; // after that (3–5 s)
+const FAST_PHASE_MS = 60_000;
+const MAX_BACKOFF_MS = 15_000;
+const ERRORS_BEFORE_RECONNECTING = 2;
+
 const OPEN_TIMEOUT_MS = 4000;
-const RETURN_DELAY_MS = 1500;
-const PROOF_RETRY_MS = 3000;
+/** Brief "Done" before leaving: the terminal session is kept only ~60 s (HVP-SD §5.6, E4). */
+const RETURN_DELAY_MS = 600;
 
 interface Props {
-  sessionId: string;
-  initialSession: PublicSession | null;
+  hostedId: string;
+  apiBaseUrl: string;
   mode: DeviceMode;
-  devTools: boolean;
 }
 
-export function HostedFlow({ sessionId, initialSession, mode, devTools }: Props) {
-  const [state, dispatch] = useReducer(flowReducer, initialSession, initialFlow);
+export function HostedFlow({ hostedId, apiBaseUrl, mode }: Props) {
+  const [state, dispatch] = useReducer(flowReducer, initialFlow);
   const { view, session } = state;
-  const live = isLive(view);
-  const channelRef = useRef<BroadcastChannel | null>(null);
+  const loaded = Boolean(session);
+  const terminal = isTerminal(view);
 
-  /* -- 1. Create the proof request whenever we're in "loading" ------------- */
+  /* -- 1. Load the request once (retry with back-off on network errors) ---- */
   useEffect(() => {
-    if (view !== "loading") return;
-    let cancelled = false;
-    let retry: ReturnType<typeof setTimeout>;
+    if (loaded) return;
+    const ctrl = new AbortController();
+    let timer: ReturnType<typeof setTimeout>;
+    let attempt = 0;
 
-    const run = async () => {
+    const load = async () => {
       try {
-        const res = await fetch(`/api/sessions/${encodeURIComponent(sessionId)}/proof`, { method: "POST" });
-        if (cancelled) return;
-        if (res.status === 404) return dispatch({ type: "gone" });
-        if (!res.ok) throw new Error(String(res.status));
-        dispatch({ type: "server", session: (await res.json()) as PublicSession });
-      } catch {
-        if (cancelled) return;
-        retry = setTimeout(run, PROOF_RETRY_MS);
+        const request = await fetchHostedRequest(apiBaseUrl, hostedId, ctrl.signal);
+        dispatch({ type: "connection-restored" });
+        dispatch({ type: "loaded", hostedId, request });
+      } catch (err) {
+        if (ctrl.signal.aborted) return;
+        if (err instanceof NotFoundError) return dispatch({ type: "not-found" });
+        attempt += 1;
+        if (attempt >= ERRORS_BEFORE_RECONNECTING) dispatch({ type: "connection-lost" });
+        timer = setTimeout(load, Math.min(1000 * 2 ** attempt, MAX_BACKOFF_MS));
       }
     };
-    run();
+    load();
     return () => {
-      cancelled = true;
-      clearTimeout(retry);
+      ctrl.abort();
+      clearTimeout(timer);
     };
-  }, [view, sessionId]);
+  }, [apiBaseUrl, hostedId, loaded]);
 
-  /* -- 2. Live status stream (SSE) while the request is active ------------- */
+  /* -- 2. Poll status (DL-008): fast then slow, pause when hidden, back off -- */
   useEffect(() => {
-    if (!live) return;
-    const es = new EventSource(`/api/sessions/${encodeURIComponent(sessionId)}/events`);
-    es.addEventListener("status", (e) => {
-      dispatch({ type: "connection-restored" });
-      dispatch({ type: "server", session: JSON.parse((e as MessageEvent).data) as PublicSession });
-    });
-    es.addEventListener("gone", () => {
-      es.close();
-      dispatch({ type: "gone" });
-    });
-    es.onopen = () => dispatch({ type: "connection-restored" });
-    es.onerror = () => {
-      // EventSource reconnects on its own; show the reconnecting screen meanwhile.
-      if (es.readyState !== EventSource.CLOSED) dispatch({ type: "connection-lost" });
-    };
-    const offline = () => dispatch({ type: "connection-lost" });
-    window.addEventListener("offline", offline);
-    return () => {
-      es.close();
-      window.removeEventListener("offline", offline);
-    };
-    // Re-subscribe only when switching between live and not-live.
-  }, [live, sessionId]);
+    if (!loaded || terminal) return;
+    const ctrl = new AbortController();
+    const startedAt = Date.now();
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    let errors = 0;
+    let inFlight = false;
 
-  /* -- 3. Wallet deep link: detect "still opening" and leaving for the app - */
+    const schedule = () => {
+      clearTimeout(timer);
+      if (ctrl.signal.aborted || document.visibilityState === "hidden") return; // paused
+      const base = Date.now() - startedAt < FAST_PHASE_MS ? FAST_POLL_MS : SLOW_POLL_MS;
+      const delay = errors ? Math.min(base * 2 ** errors, MAX_BACKOFF_MS) : base;
+      timer = setTimeout(poll, delay);
+    };
+
+    const poll = async () => {
+      if (inFlight || ctrl.signal.aborted) return;
+      inFlight = true;
+      try {
+        const response = await fetchHostedStatus(apiBaseUrl, hostedId, ctrl.signal);
+        if (errors) dispatch({ type: "connection-restored" });
+        errors = 0;
+        dispatch({ type: "status", response });
+      } catch (err) {
+        if (ctrl.signal.aborted) return;
+        // The session is gone — used by the service, or lapsed in the background (Figma 17).
+        if (err instanceof NotFoundError) {
+          dispatch({ type: "gone" });
+          return;
+        }
+        errors += 1;
+        if (errors >= ERRORS_BEFORE_RECONNECTING) dispatch({ type: "connection-lost" });
+      } finally {
+        inFlight = false;
+      }
+      schedule();
+    };
+
+    // Check at once when the tab becomes visible again.
+    const onVisible = () => {
+      if (document.visibilityState === "visible") {
+        clearTimeout(timer);
+        poll();
+      }
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    poll();
+    return () => {
+      ctrl.abort();
+      clearTimeout(timer);
+      document.removeEventListener("visibilitychange", onVisible);
+    };
+  }, [apiBaseUrl, hostedId, loaded, terminal]);
+
+  /* -- 3. The shared deadline (DL-017): expire even if nothing was scanned -- */
+  const expiresAt = session?.expiresAt;
+  useEffect(() => {
+    if (!expiresAt || terminal) return;
+    const t = setTimeout(() => dispatch({ type: "deadline" }), Math.max(0, expiresAt - Date.now()));
+    return () => clearTimeout(t);
+  }, [expiresAt, terminal]);
+
+  /* -- 4. Wallet deep link: "still opening", and leaving for the app -------- */
   useEffect(() => {
     if (view !== "opening") return;
     const t = setTimeout(() => dispatch({ type: "open-timeout" }), OPEN_TIMEOUT_MS);
@@ -83,65 +129,36 @@ export function HostedFlow({ sessionId, initialSession, mode, devTools }: Props)
 
   useEffect(() => {
     if (view !== "opening" && view !== "still-opening") return;
-    const onVis = () => {
+    const onHide = () => {
       if (document.visibilityState === "hidden") dispatch({ type: "page-hidden" });
     };
-    const onBlur = () => dispatch({ type: "page-hidden" });
-    document.addEventListener("visibilitychange", onVis);
-    window.addEventListener("pagehide", onBlur);
+    const onPageHide = () => dispatch({ type: "page-hidden" });
+    document.addEventListener("visibilitychange", onHide);
+    window.addEventListener("pagehide", onPageHide);
     return () => {
-      document.removeEventListener("visibilitychange", onVis);
-      window.removeEventListener("pagehide", onBlur);
+      document.removeEventListener("visibilitychange", onHide);
+      window.removeEventListener("pagehide", onPageHide);
     };
   }, [view]);
 
+  const deepLink = session?.deepLinkURL;
   const openWallet = useCallback(() => {
-    if (!session?.deepLinkURL) return;
-    dispatch({ type: "tap-continue" });
-    window.location.href = session.deepLinkURL;
-  }, [session?.deepLinkURL]);
+    if (!deepLink) return;
+    dispatch({ type: "tap-deep-link" });
+    window.location.href = deepLink;
+  }, [deepLink]);
 
-  /* -- 4. Cross-tab: only one tab redirects, the others say "All done" ----- */
+  /* -- 5. Completed (cross-device): go back with the response_code at once --- */
+  const returnUrl = session?.returnUrl;
+  const navigated = useRef(false);
   useEffect(() => {
-    if (typeof BroadcastChannel === "undefined") return;
-    const ch = new BroadcastChannel(`ndi-session-${sessionId}`);
-    channelRef.current = ch;
-    ch.onmessage = (e) => {
-      if (e.data === "returning") dispatch({ type: "done-elsewhere" });
-    };
-    return () => {
-      ch.close();
-      channelRef.current = null;
-    };
-  }, [sessionId]);
-
-  /* -- 5. Verified → short "Done" pause → back to the partner -------------- */
-  useEffect(() => {
-    if (view !== "returning" || !session) return;
-    let timer: ReturnType<typeof setTimeout> | undefined;
-    const go = () => {
-      channelRef.current?.postMessage("returning");
-      timer = setTimeout(() => {
-        window.location.assign(`/api/sessions/${encodeURIComponent(session.id)}/return`);
-      }, RETURN_DELAY_MS);
-    };
-    // A background tab waits until it is visible so the foreground one wins.
-    if (document.visibilityState === "visible") go();
-    else {
-      const onVis = () => {
-        if (document.visibilityState === "visible") {
-          document.removeEventListener("visibilitychange", onVis);
-          go();
-        }
-      };
-      document.addEventListener("visibilitychange", onVis);
-      return () => {
-        document.removeEventListener("visibilitychange", onVis);
-        clearTimeout(timer);
-      };
-    }
-    return () => clearTimeout(timer);
-  }, [view, session]);
+    if (view !== "returning" || !returnUrl || navigated.current) return;
+    const t = setTimeout(() => {
+      navigated.current = true;
+      window.location.replace(returnUrl);
+    }, RETURN_DELAY_MS);
+    return () => clearTimeout(t);
+  }, [view, returnUrl]);
 
   return (
     <Frame mode={mode}>
@@ -149,12 +166,10 @@ export function HostedFlow({ sessionId, initialSession, mode, devTools }: Props)
         view={view}
         mode={mode}
         session={session}
-        onContinue={openWallet}
+        onOpenWallet={openWallet}
         onShowQr={() => dispatch({ type: "show-qr" })}
         onHideQr={() => dispatch({ type: "hide-qr" })}
-        onRestart={() => dispatch({ type: "restart" })}
       />
-      {devTools && session && <DevPanel sessionId={session.id} view={view} mode={mode} />}
     </Frame>
   );
 }

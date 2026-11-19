@@ -1,33 +1,39 @@
-/** Server-side lifecycle of a verification session. */
-export type SessionStatus =
-  | "created" // session exists, no proof request yet
-  | "pending" // proof request ready, waiting for the wallet
-  | "scanned" // wallet picked up the request, waiting for approval
-  | "verified" // proof validated
-  | "declined" // user declined in the wallet
-  | "failed" // proof could not be validated
-  | "expired" // proof request not used before PROOF_TTL
-  | "timed_out" // scanned but not approved before APPROVAL_TIMEOUT
-  | "cancelled" // user/partner cancelled, or session superseded
-  | "completed"; // result handed back to the partner (redirected)
+/**
+ * Status reported by the platform's `GET /verification/hosted/:hostedId/status` (HVP-SD §5.3).
+ * `scanned` is optional: without it the page goes from `pending` straight to the outcome (DL-016).
+ * `declined` is optional too (Figma 11): HVP-SD §5.3 has one `failed` value today; without
+ * `declined` a decline shows as "We could not complete the check".
+ */
+export type HostedStatus = "pending" | "scanned" | "completed" | "declined" | "failed" | "expired";
 
-/** Safe-to-expose view of a session, sent to the browser. */
-export interface PublicSession {
-  id: string;
-  status: SessionStatus;
-  partnerName: string;
-  /** Hostname of the partner, shown as "Return to service.gov.bt". */
-  partnerHost: string;
-  proofRequestURL?: string;
+/** What `GET /verification/hosted/:hostedId` returns. It never carries the response_code (DL-013). */
+export interface HostedRequest {
+  /** Host of the relying party's allowlisted redirectUri, shown as "You'll return to …" (DL-009). */
+  returnHost: string;
+  /** The relying party's redirectUri without the code; "Start again" goes here with error=expired (DL-013). */
+  redirectUri: string;
+  /** Bare DIDComm invitation: the only thing the QR code encodes (DL-004). */
+  proofRequestURL: string;
+  /** Deep link for the "Open Bhutan NDI" button (same device). */
   deepLinkURL?: string;
-  /** Epoch ms when the current proof request expires (pending only). */
-  expiresAt?: number;
-  /** Epoch ms when approval times out (scanned only). */
-  approvalDeadline?: number;
-  /** Final outcome once status is "completed". */
-  outcome?: SessionStatus;
-  /** Whether "Start again" is still possible. */
-  canRestart: boolean;
+  /** The request's single deadline, shared with the wallet (DL-017), as epoch ms. */
+  expiresAt: number;
+  /** The request's total lifetime, if the platform sends it (`expiresInSeconds`); shown on the expired screen. */
+  validForSeconds?: number;
+}
+
+/** What `GET /verification/hosted/:hostedId/status` returns. */
+export interface HostedStatusResponse {
+  status: HostedStatus;
+  /** redirectUri?response_code=…; only present on `completed`, `declined` or `failed` (HVP-SD §5.3). */
+  returnUrl?: string;
+}
+
+/** The page's view of a request: what it loaded once, plus the latest polled status. */
+export interface PublicSession extends HostedRequest {
+  hostedId: string;
+  status: HostedStatus;
+  returnUrl?: string;
 }
 
 export type DeviceMode = "mobile" | "web";

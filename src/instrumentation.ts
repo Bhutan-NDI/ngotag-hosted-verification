@@ -13,8 +13,8 @@ export async function register() {
     }
   }
   log.info("hosted page starting", {
-    mock: config.mock,
-    store: config.redisUrl ? "redis" : "memory",
-    partners: config.partners.map((p) => p.id),
+    platformApiUrl: config.platformApiUrl,
+    mockPlatform: config.mockPlatform,
+    languageToggle: config.languageToggle,
   });
 }

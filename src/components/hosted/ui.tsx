@@ -1,112 +1,79 @@
 "use client";
 
 import Image from "next/image";
-import type { ComponentProps, ReactNode } from "react";
+import { useEffect, useState, type ComponentProps, type ReactNode } from "react";
 import { Fmt, useI18n } from "@/lib/i18n/client";
 import { LANGS } from "@/lib/i18n/messages";
 
 /* ------------------------------------------------------------------------ */
-/* Icons (inline, 24px grid, stroke-based)                                   */
+/* Assets — exported from the Figma file into public/figma                   */
 /* ------------------------------------------------------------------------ */
 
-type IconProps = { className?: string };
-const stroke = {
-  fill: "none",
-  stroke: "currentColor",
-  strokeWidth: 2,
-  strokeLinecap: "round" as const,
-  strokeLinejoin: "round" as const,
-};
+const A = "/figma";
 
-export const Icon = {
-  ArrowRight: ({ className }: IconProps) => (
-    <svg viewBox="0 0 24 24" className={className} {...stroke} aria-hidden>
-      <path d="M5 12h14M13 6l6 6-6 6" />
-    </svg>
-  ),
-  Retry: ({ className }: IconProps) => (
-    <svg viewBox="0 0 24 24" className={className} {...stroke} aria-hidden>
-      <path d="M3 12a9 9 0 1 0 3-6.7L3 8" />
-      <path d="M3 3v5h5" />
-    </svg>
-  ),
-  Check: ({ className }: IconProps) => (
-    <svg viewBox="0 0 24 24" className={className} {...stroke} aria-hidden>
-      <path d="M5 12.5l4.5 4.5L19 7.5" />
-    </svg>
-  ),
-  X: ({ className }: IconProps) => (
-    <svg viewBox="0 0 24 24" className={className} {...stroke} aria-hidden>
-      <path d="M6 6l12 12M18 6L6 18" />
-    </svg>
-  ),
-  Alert: ({ className }: IconProps) => (
-    <svg viewBox="0 0 24 24" className={className} {...stroke} aria-hidden>
-      <path d="M12 3l9.5 17h-19L12 3z" />
-      <path d="M12 10v4M12 17.5v.01" />
-    </svg>
-  ),
-  Hourglass: ({ className }: IconProps) => (
-    <svg viewBox="0 0 24 24" className={className} {...stroke} aria-hidden>
-      <path d="M6 3h12M6 21h12M7 3c0 5 10 5 10 9s-10 4-10 9M17 3c0 5-10 5-10 9s10 4 10 9" />
-    </svg>
-  ),
-  Clock: ({ className }: IconProps) => (
-    <svg viewBox="0 0 24 24" className={className} {...stroke} aria-hidden>
-      <circle cx="12" cy="12" r="9" />
-      <path d="M12 7v5l3 2" />
-    </svg>
-  ),
-  LinkOff: ({ className }: IconProps) => (
-    <svg viewBox="0 0 24 24" className={className} {...stroke} aria-hidden>
-      <path d="M9 15l6-6M10.5 6.5l1.8-1.8a4.2 4.2 0 0 1 6 6l-1.8 1.8M13.5 17.5l-1.8 1.8a4.2 4.2 0 0 1-6-6l1.8-1.8M3 3l18 18" />
-    </svg>
-  ),
-  Ban: ({ className }: IconProps) => (
-    <svg viewBox="0 0 24 24" className={className} {...stroke} aria-hidden>
-      <circle cx="12" cy="12" r="9" />
-      <path d="M5.6 5.6l12.8 12.8" />
-    </svg>
-  ),
-  WifiOff: ({ className }: IconProps) => (
-    <svg viewBox="0 0 24 24" className={className} {...stroke} aria-hidden>
-      <path d="M3 3l18 18M8.5 16.5a5 5 0 0 1 7 0M5 13a10 10 0 0 1 5.2-2.8M19 13a10 10 0 0 0-2.2-1.6M2 9.5a15 15 0 0 1 4.3-2.7M22 9.5A15 15 0 0 0 11 5.1M12 20h.01" />
-    </svg>
-  ),
-  Phone: ({ className }: IconProps) => (
-    <svg viewBox="0 0 24 24" className={className} {...stroke} aria-hidden>
-      <rect x="6" y="2.5" width="12" height="19" rx="2.5" />
-      <path d="M11 18h2" />
-    </svg>
-  ),
-  Mail: ({ className }: IconProps) => (
-    <svg viewBox="0 0 24 24" className={className} {...stroke} aria-hidden>
-      <rect x="3" y="5" width="18" height="14" rx="2" />
-      <path d="M3.5 6l8.5 7 8.5-7" />
-    </svg>
-  ),
-  Call: ({ className }: IconProps) => (
-    <svg viewBox="0 0 24 24" className={className} {...stroke} aria-hidden>
-      <path d="M5 4h3.5l1.7 4.3-2.2 1.4a11 11 0 0 0 6.3 6.3l1.4-2.2L20 15.5V19a1.5 1.5 0 0 1-1.6 1.5A16.5 16.5 0 0 1 3.5 5.6 1.5 1.5 0 0 1 5 4z" />
-    </svg>
-  ),
-  ChevronDown: ({ className }: IconProps) => (
-    <svg viewBox="0 0 24 24" className={className} {...stroke} aria-hidden>
-      <path d="M6 9l6 6 6-6" />
-    </svg>
-  ),
-  Play: ({ className }: IconProps) => (
-    <svg viewBox="0 0 24 24" className={className} aria-hidden>
-      <circle cx="12" cy="12" r="10" fill="currentColor" />
-      <path d="M10 8.5v7l5.5-3.5z" fill="white" />
-    </svg>
-  ),
-  Scan: ({ className }: IconProps) => (
-    <svg viewBox="0 0 24 24" className={className} {...stroke} aria-hidden>
-      <path d="M4 8V5a1 1 0 0 1 1-1h3M16 4h3a1 1 0 0 1 1 1v3M20 16v3a1 1 0 0 1-1 1h-3M8 20H5a1 1 0 0 1-1-1v-3M4 12h16" />
-    </svg>
-  ),
-};
+/** Fixed-size static asset. SVGs keep their own width/height. */
+export function Asset({
+  src,
+  width,
+  height,
+  alt = "",
+  className,
+}: {
+  src: string;
+  width: number;
+  height: number;
+  alt?: string;
+  className?: string;
+}) {
+  return (
+    <Image
+      src={`${A}/${src}`}
+      width={width}
+      height={height}
+      alt={alt}
+      aria-hidden={alt ? undefined : true}
+      unoptimized
+      loading="eager"
+      className={cx("shrink-0", className)}
+      style={{ width, height }}
+    />
+  );
+}
+
+/** Status-screen icons: 56px, mint-soft circle baked into each SVG (Figma). */
+export type StatusIconName =
+  | "hourglass"
+  | "clock"
+  | "link-off"
+  | "circle-x"
+  | "triangle-alert"
+  | "smartphone"
+  | "new-tab";
+
+export function StatusIcon({ name }: { name: StatusIconName }) {
+  return <Asset src={`icon-${name}.svg`} width={56} height={56} />;
+}
+
+/** "Done": solid mint circle with a white check (Figma 10). */
+export function DoneIcon() {
+  return (
+    <span className="grid size-14 shrink-0 place-items-center rounded-full bg-mint">
+      <Asset src="check.svg" width={28} height={28} />
+    </span>
+  );
+}
+
+/** Mint arc spinner (Figma: rotate 360° / 1s). */
+export function Spinner({ size = 56 }: { size?: 56 | 20 }) {
+  return (
+    <Asset
+      src={size === 20 ? "spinner-button.svg" : "spinner.svg"}
+      width={size}
+      height={size}
+      className="animate-ndi-spin"
+    />
+  );
+}
 
 /* ------------------------------------------------------------------------ */
 /* Primitives                                                                */
@@ -116,45 +83,43 @@ export function cx(...c: (string | false | null | undefined)[]) {
   return c.filter(Boolean).join(" ");
 }
 
-export function Spinner({ className }: { className?: string }) {
-  return (
-    <svg viewBox="0 0 24 24" className={cx("animate-ndi-spin", className)} aria-hidden>
-      <circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" strokeOpacity=".2" strokeWidth="2.5" />
-      <path d="M21 12a9 9 0 0 0-9-9" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" />
-    </svg>
-  );
-}
+const focusRing = "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary";
 
-/** Bhutan NDI wallet mark (mint on a dark tile, like the app icon). */
-/** Bhutan NDI app icon (public/center-icon.png, 88×88 — sharp up to ~64px). */
-export function NdiMark({ size = 64 }: { size?: number }) {
+/** Bhutan NDI Wallet app icon: mint mark on a dark rounded tile (Figma). */
+export function NdiMark() {
   const { t } = useI18n();
   return (
-    <Image
-      src="/center-icon.png"
-      alt={t.logoAlt}
-      width={size}
-      height={size}
-      priority
-      unoptimized
-      className="drop-shadow-sm"
-    />
+    <div
+      role="img"
+      aria-label={t.logoAlt}
+      className="relative size-16 shrink-0 overflow-hidden rounded-[13px] bg-tile shadow-[0_4px_12px_rgba(0,0,0,0.14)]"
+    >
+      <Image
+        src={`${A}/ndi-mark.png`}
+        alt=""
+        width={51}
+        height={50}
+        priority
+        unoptimized
+        className="absolute left-[6.47px] top-[7.17px] h-[49.65px] w-[51.07px] max-w-none object-cover"
+      />
+    </div>
   );
 }
 
 export function BrandName() {
-  return <span className="text-brand">Bhutan NDI</span>;
+  return <span className="text-mint">Bhutan NDI</span>;
 }
 
-/** EN | རྫོང་ཁ segmented switch. Hidden when ENABLE_LANGUAGE_TOGGLE=false. */
-export function LanguageToggle() {
+/** EN | རྫོང་ཁ segmented switch, top-right of the card. Hidden when ENABLE_LANGUAGE_TOGGLE=false. */
+export function LanguageToggle({ className }: { className?: string }) {
   const { lang, setLang, t, toggleEnabled } = useI18n();
   if (!toggleEnabled) return null;
   return (
     <div
       role="group"
       aria-label={t.languageLabel}
-      className="inline-flex items-center rounded-full border border-line bg-surface p-0.5"
+      className={cx("flex items-center rounded-[13px] border border-line bg-surface p-0.5", className)}
     >
       {LANGS.map((l) => {
         const active = l === lang;
@@ -166,10 +131,11 @@ export function LanguageToggle() {
             aria-pressed={active}
             onClick={() => setLang(l)}
             className={cx(
-              "h-8 min-w-11 rounded-full px-3 transition-colors focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-brand",
-              // Tibetan script needs more size and weight to read at the same scale.
-              l === "dz" ? "text-[15px] font-bold leading-none" : "text-xs font-semibold",
-              active ? "bg-primary text-white" : "text-ink hover:bg-neutral-soft",
+              // 22px tall in Figma; the ::before extends the tap target to 44px.
+              "relative flex h-[22px] min-w-11 items-center justify-center rounded-[11px] px-[9px] transition-colors before:absolute before:-inset-y-[11px] before:inset-x-0",
+              focusRing,
+              l === "dz" ? "text-base leading-6" : "text-xs font-semibold leading-4",
+              active ? "bg-primary text-white" : "text-label hover:bg-canvas",
             )}
           >
             {t.langShort[l]}
@@ -180,51 +146,30 @@ export function LanguageToggle() {
   );
 }
 
-type ButtonBase = { children: ReactNode; className?: string; block?: boolean };
+type ButtonBase = { children: ReactNode; className?: string };
 
-const btn =
-  "inline-flex items-center justify-center gap-2 rounded-full px-6 min-h-12 py-2 text-[15px] font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand disabled:cursor-not-allowed";
-/** Main call to action: tall dark pill with a soft shadow (Figma). */
-const primary =
-  "min-h-14 text-base bg-primary text-white shadow-[0_8px_20px_-8px_rgba(30,59,51,.55)] hover:bg-primary-hover";
+const btn = cx(
+  "inline-flex h-[52px] w-full items-center justify-center gap-2.5 rounded-[26px] bg-primary px-6 text-base font-semibold text-white transition-colors",
+  focusRing,
+);
+/** Ready-screen buttons carry a soft shadow; status-screen buttons are flat (Figma). */
+const raised = "shadow-[0_6px_14px_rgba(18,64,66,0.25)]";
 
-export function PrimaryButton({ children, className, block = true, ...rest }: ButtonBase & ComponentProps<"button">) {
-  return (
-    <button
-      type="button"
-      className={cx(btn, primary, "disabled:bg-primary/60 disabled:shadow-none", block && "w-full", className)}
-      {...rest}
-    >
-      {children}
-    </button>
-  );
-}
-
-export function PrimaryLink({ children, className, block = true, ...rest }: ButtonBase & ComponentProps<"a">) {
-  return (
-    <a className={cx(btn, primary, block && "w-full", className)} {...rest}>
-      {children}
-    </a>
-  );
-}
-
-export function SecondaryLink({ children, className, block = false, ...rest }: ButtonBase & ComponentProps<"a">) {
-  return (
-    <a
-      className={cx(btn, "min-h-10 border border-line bg-surface text-sm text-ink hover:bg-neutral-soft", block && "w-full", className)}
-      {...rest}
-    >
-      {children}
-    </a>
-  );
-}
-
-export function TextButton({ children, className, ...rest }: ButtonBase & ComponentProps<"button">) {
+export function PrimaryButton({
+  children,
+  className,
+  flat = false,
+  dim,
+  ...rest
+}: ButtonBase & { flat?: boolean; dim?: "loading" | "disabled" } & ComponentProps<"button">) {
   return (
     <button
       type="button"
       className={cx(
-        "rounded text-sm font-medium text-brand underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-brand",
+        btn,
+        !flat && raised,
+        // Figma: 70% while opening, 60% when disabled after a scan.
+        dim === "loading" ? "cursor-progress bg-primary/70" : dim === "disabled" ? "cursor-not-allowed bg-primary/60" : "hover:bg-primary-hover",
         className,
       )}
       {...rest}
@@ -234,188 +179,265 @@ export function TextButton({ children, className, ...rest }: ButtonBase & Compon
   );
 }
 
-export function TextLink({ children, className, ...rest }: ButtonBase & ComponentProps<"a">) {
+export function PrimaryLink({ children, className, ...rest }: ButtonBase & ComponentProps<"a">) {
   return (
-    <a
-      className={cx(
-        "rounded text-sm font-medium text-muted underline-offset-4 hover:text-ink hover:underline focus-visible:outline-2 focus-visible:outline-brand",
-        className,
-      )}
-      {...rest}
-    >
+    <a className={cx(btn, "hover:bg-primary-hover", className)} {...rest}>
       {children}
     </a>
   );
 }
 
-export function Divider() {
-  return <hr className="my-6 border-0 border-t border-line" />;
+/** "Use QR code instead" / "Hide QR code" (Figma: mint, chevron; grey when disabled). */
+export function QrToggle({
+  expanded,
+  disabled,
+  onClick,
+}: {
+  expanded: boolean;
+  disabled?: boolean;
+  onClick?: () => void;
+}) {
+  const { t } = useI18n();
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      aria-expanded={expanded}
+      className={cx(
+        "inline-flex items-center gap-1.5 rounded-lg px-4 py-3 text-[15px] font-semibold",
+        focusRing,
+        disabled ? "text-disabled" : "text-mint hover:underline hover:underline-offset-4",
+      )}
+    >
+      {expanded ? t.hideQr : t.useQr}
+      <Asset
+        src={expanded ? (disabled ? "chevron-up-disabled.svg" : "chevron-up.svg") : "chevron-down.svg"}
+        width={14}
+        height={14}
+      />
+    </button>
+  );
+}
+
+export function Divider({ className }: { className?: string }) {
+  return <hr className={cx("h-px w-full border-0 bg-line", className)} />;
+}
+
+/** The wallet's scan button, shown inline in the scan steps. */
+export function ScanButton({ size = "sm" }: { size?: "sm" | "lg" }) {
+  const { t } = useI18n();
+  const [w, h] = size === "lg" ? [28, 26] : [21.5, 20];
+  return (
+    <Asset src="scan-button.png" width={w} height={h} alt={t.scanButtonAlt} className="inline-block align-middle" />
+  );
+}
+
+/** "1. Open … 2. Tap the scan button [icon] and scan this QR code" (Figma). */
+export function ScanSteps({ size = "sm" }: { size?: "sm" | "lg" }) {
+  const { t } = useI18n();
+  return (
+    <ol
+      className={cx(
+        "list-decimal space-y-1.5 pl-4 text-left text-muted marker:text-muted",
+        size === "lg" ? "w-full max-w-[324px] text-[15px] leading-[22px]" : "w-full max-w-[296px] text-sm leading-[20px]",
+      )}
+    >
+      <li>{t.stepOpenWallet}</li>
+      <li>
+        <Fmt text={t.stepTapScan} values={{ scan: <ScanButton size={size} /> }} />
+      </li>
+    </ol>
+  );
 }
 
 /* ------------------------------------------------------------------------ */
-/* Composite blocks                                                          */
+/* Footer: download + support                                                */
 /* ------------------------------------------------------------------------ */
 
 const SUPPORT_EMAIL = process.env.NEXT_PUBLIC_SUPPORT_EMAIL ?? "";
 const SUPPORT_PHONE = process.env.NEXT_PUBLIC_SUPPORT_PHONE ?? "";
 const PLAY_URL = process.env.NEXT_PUBLIC_PLAY_STORE_URL ?? "https://play.google.com/store/search?q=bhutan%20ndi";
 const APPSTORE_URL = process.env.NEXT_PUBLIC_APP_STORE_URL ?? "https://apps.apple.com/search?term=bhutan%20ndi";
-
 const VIDEO_GUIDE_URL = process.env.NEXT_PUBLIC_VIDEO_GUIDE_URL ?? "";
 
-export const HAS_SUPPORT = Boolean(SUPPORT_EMAIL || SUPPORT_PHONE || VIDEO_GUIDE_URL);
+const HAS_SUPPORT = Boolean(SUPPORT_EMAIL || SUPPORT_PHONE || VIDEO_GUIDE_URL);
+const HAS_CONTACT = Boolean(SUPPORT_EMAIL || SUPPORT_PHONE);
 
-/**
- * "Get Support": optional video guide, then phone · email.
- * Each item shows only if configured; nothing renders if none are.
- */
-export function SupportFooter({ divider = true }: { divider?: boolean }) {
+/** App Store on iPhone/iPad, Google Play otherwise. Decided after mount to keep SSR stable. */
+function useStoreUrl() {
+  const [url, setUrl] = useState(PLAY_URL);
+  useEffect(() => {
+    const ua = navigator.userAgent;
+    const ios = /iPhone|iPad|iPod/i.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1);
+    if (ios) setUrl(APPSTORE_URL);
+  }, []);
+  return url;
+}
+
+const external = { target: "_blank", rel: "noopener noreferrer" } as const;
+const quietLink = cx("rounded hover:text-ink", focusRing);
+
+function NoAppLine({ className }: { className?: string }) {
   const { t } = useI18n();
-  if (!HAS_SUPPORT) return null;
+  const store = useStoreUrl();
   return (
-    <>
-      {divider && <Divider />}
-      <div className="text-center">
-        <p className="text-sm font-semibold text-ink">{t.support}</p>
-        {VIDEO_GUIDE_URL && (
-          <a
-            href={VIDEO_GUIDE_URL}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="mt-2 inline-flex items-center gap-1.5 text-sm text-muted hover:text-ink"
-          >
-            {t.watchGuide}
-            <Icon.Play className="size-4 text-mint" />
-          </a>
-        )}
-        {(SUPPORT_PHONE || SUPPORT_EMAIL) && (
-          <div className="mt-3 flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-sm text-muted">
-            {SUPPORT_PHONE && (
-              <a href={`tel:${SUPPORT_PHONE}`} className="inline-flex items-center gap-1.5 hover:text-ink">
-                <Icon.Call className="size-4 text-mint" />
-                {SUPPORT_PHONE}
-              </a>
-            )}
-            {SUPPORT_PHONE && SUPPORT_EMAIL && (
-              <span className="text-subtle" aria-hidden>
-                ·
-              </span>
-            )}
-            {SUPPORT_EMAIL && (
-              <a href={`mailto:${SUPPORT_EMAIL}`} className="inline-flex items-center gap-1.5 hover:text-ink">
-                <Icon.Mail className="size-4 text-mint" />
-                {SUPPORT_EMAIL}
-              </a>
-            )}
-          </div>
-        )}
-      </div>
-    </>
+    <p className={cx("text-center text-muted", className)}>
+      <Fmt
+        text={t.noApp}
+        values={{
+          download: (
+            <a href={store} {...external} className={cx("rounded font-semibold text-mint hover:underline", focusRing)}>
+              {t.downloadNow}
+            </a>
+          ),
+        }}
+      />
+    </p>
   );
 }
 
-const BADGE_H = 40;
+function VideoGuideLink() {
+  const { t } = useI18n();
+  if (!VIDEO_GUIDE_URL) return null;
+  return (
+    <a href={VIDEO_GUIDE_URL} {...external} className={cx("inline-flex items-center gap-[5px] py-[7px]", quietLink)}>
+      {t.watchGuide}
+      <Asset src="play.svg" width={16} height={16} />
+    </a>
+  );
+}
 
-/** Official store badges (public/badges). */
-export function StoreBadges() {
+function Phone({ icon }: { icon: number }) {
+  if (!SUPPORT_PHONE) return null;
+  return (
+    <a href={`tel:${SUPPORT_PHONE}`} className={cx("inline-flex items-center gap-[5px] py-[5px]", quietLink)}>
+      <Asset src="call.svg" width={icon} height={icon} />
+      {SUPPORT_PHONE}
+    </a>
+  );
+}
+
+function Email({ icon }: { icon: number }) {
+  if (!SUPPORT_EMAIL) return null;
+  return (
+    <a href={`mailto:${SUPPORT_EMAIL}`} className={cx("inline-flex items-center gap-[5px] py-[5px]", quietLink)}>
+      <Asset src="mail.svg" width={icon} height={(icon * 2) / 3} />
+      <span className="break-all">{SUPPORT_EMAIL}</span>
+    </a>
+  );
+}
+
+/**
+ * Phone footer (Figma 3): "Don't have the wallet? Download Now!", then Get Support
+ * with video guide, phone · email. Each support item shows only if configured.
+ */
+export function MobileFooter() {
+  const { t } = useI18n();
+  return (
+    <div className="flex flex-col items-center gap-2.5 text-[13px]">
+      <NoAppLine className="py-[7px]" />
+      {HAS_SUPPORT && (
+        <div className="flex flex-col items-center gap-0.5 pt-[11px] text-muted">
+          <p className="font-semibold text-label">{t.support}</p>
+          <VideoGuideLink />
+          {HAS_CONTACT && (
+            <div className="flex flex-wrap items-center justify-center gap-x-3">
+              <Phone icon={16} />
+              {SUPPORT_PHONE && SUPPORT_EMAIL && (
+                <span className="text-dot" aria-hidden>
+                  ·
+                </span>
+              )}
+              <Email icon={16} />
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** Outlined mint pill linking to the video guide (Figma 3w). */
+function WatchGuideButton() {
+  const { t } = useI18n();
+  if (!VIDEO_GUIDE_URL) return null;
+  return (
+    <a
+      href={VIDEO_GUIDE_URL}
+      {...external}
+      className={cx(
+        "inline-flex h-10 min-w-[200px] items-center justify-center gap-3 rounded-full border-2 border-mint px-5 text-[15px] font-semibold text-primary hover:bg-mint-soft",
+        focusRing,
+      )}
+    >
+      {t.watchGuide}
+      <Asset src="play.svg" width={20} height={20} />
+    </a>
+  );
+}
+
+const BADGE_W = 158;
+const BADGE_H = 46;
+
+/** Official store badges (public/badges), 158×46 each (Figma 3w). */
+function StoreBadges() {
   const { t } = useI18n();
   // google-play.png is 646×250 with built-in padding; the badge itself is 562×166 at (42,42).
   const scale = BADGE_H / 166;
   return (
-    <div className="flex flex-wrap items-center justify-center gap-3">
+    <div className="flex flex-wrap items-center justify-center gap-5">
       <a
         href={PLAY_URL}
-        target="_blank"
-        rel="noopener noreferrer"
+        {...external}
         aria-label={t.getItOnGooglePlay}
-        className="block overflow-hidden rounded-[6px] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
-        style={{ width: Math.round(562 * scale), height: BADGE_H }}
+        className={cx("grid place-items-center", focusRing)}
+        style={{ width: BADGE_W, height: BADGE_H }}
       >
-        <Image
-          src="/badges/google-play.png"
-          alt=""
-          width={Math.round(646 * scale)}
-          height={Math.round(250 * scale)}
-          style={{ margin: -Math.round(42 * scale), maxWidth: "none" }}
-        />
+        <span className="block overflow-hidden rounded-md" style={{ width: Math.round(562 * scale), height: BADGE_H }}>
+          <Image
+            src="/badges/google-play.png"
+            alt=""
+            width={Math.round(646 * scale)}
+            height={Math.round(250 * scale)}
+            loading="eager"
+            unoptimized
+            style={{ margin: -Math.round(42 * scale), maxWidth: "none" }}
+          />
+        </span>
       </a>
       <a
         href={APPSTORE_URL}
-        target="_blank"
-        rel="noopener noreferrer"
+        {...external}
         aria-label={t.downloadOnAppStore}
-        className="block rounded-[6px] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
+        className={cx("grid place-items-center rounded-md", focusRing)}
+        style={{ width: BADGE_W, height: BADGE_H }}
       >
-        <Image src="/badges/app-store.svg" alt="" width={Math.round(BADGE_H * 2.99)} height={BADGE_H} unoptimized />
+        <Image src="/badges/app-store.svg" alt="" width={BADGE_W} height={BADGE_H} loading="eager" unoptimized />
       </a>
     </div>
   );
 }
 
-/**
- * Outlined mint pill linking to the video guide (Figma web).
- * Renders nothing until NEXT_PUBLIC_VIDEO_GUIDE_URL is set.
- */
-export function WatchGuideButton({ className }: { className?: string }) {
-  const { t } = useI18n();
-  if (!VIDEO_GUIDE_URL) return null;
-  return (
-    <div className={cx("flex justify-center", className)}>
-      <a
-        href={VIDEO_GUIDE_URL}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="inline-flex min-h-11 items-center gap-2.5 rounded-full border-2 border-mint px-5 text-sm font-semibold text-brand hover:bg-brand-soft focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
-      >
-        {t.watchGuide}
-        <Icon.Play className="size-5 text-mint" />
-      </a>
-    </div>
-  );
-}
-
-export function GetTheApp() {
+/** Desktop footer (Figma 3w): guide pill, download line + badges, Get Support (email, phone). */
+export function WebFooter() {
   const { t } = useI18n();
   return (
-    <div className="text-center">
-      <p className="text-sm font-medium text-ink">
-        <Fmt text={t.noApp} values={{ brand: <BrandName /> }} />
-      </p>
-      <div className="mt-3">
+    <>
+      <WatchGuideButton />
+      <div className="flex w-full flex-col items-center gap-[15px] text-[15px]">
+        <NoAppLine />
         <StoreBadges />
       </div>
-    </div>
-  );
-}
-
-type Tone = "neutral" | "success" | "danger" | "warn";
-const toneClass: Record<Tone, string> = {
-  neutral: "bg-neutral-soft text-muted",
-  success: "bg-brand-soft text-brand",
-  danger: "bg-danger-soft text-danger",
-  warn: "bg-warn-soft text-warn",
-};
-
-export function StatusBadge({ tone, children }: { tone: Tone; children: ReactNode }) {
-  return <div className={cx("mx-auto grid size-14 place-items-center rounded-full", toneClass[tone])}>{children}</div>;
-}
-
-export function Steps({ items, done = 0 }: { items: ReactNode[]; done?: number }) {
-  return (
-    <ol className="space-y-2.5 text-left text-sm text-muted">
-      {items.map((item, i) => (
-        <li key={i} className="flex items-start gap-3">
-          <span
-            className={cx(
-              "mt-px grid size-5 shrink-0 place-items-center rounded-full text-[11px] font-semibold",
-              i < done ? "bg-brand text-white" : "bg-neutral-soft text-ink",
-            )}
-          >
-            {i < done ? <Icon.Check className="size-3" /> : i + 1}
-          </span>
-          <span className="leading-5">{item}</span>
-        </li>
-      ))}
-    </ol>
+      {HAS_CONTACT && (
+        <div className="flex flex-col items-center gap-[15px] text-[15px] text-muted">
+          <p className="font-semibold text-label">{t.support}</p>
+          <div className="flex flex-wrap items-center justify-center gap-x-5">
+            <Email icon={20} />
+            <Phone icon={20} />
+          </div>
+        </div>
+      )}
+    </>
   );
 }

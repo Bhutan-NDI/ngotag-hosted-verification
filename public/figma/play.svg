@@ -1,0 +1,12 @@
+<svg preserveAspectRatio="none" overflow="visible" style="display: block;" width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+<g id="Group 1613">
+<circle id="Ellipse 241" cx="8" cy="8" r="7.2" fill="#5AC994" stroke-width="1.6" stroke="white"/>
+<g id="Polygon 2">
+<path d="M13.4183 8.00052L5.28924 4.20119V11.7999L13.4183 8.00052Z" fill="white"/>
+<mask id="stroke0_0_16" fill="white">
+<path d="M13.4183 8.00052L5.28924 4.20119V11.7999L13.4183 8.00052Z"/>
+</mask>
+<path d="M13.4183 8.00052L5.28924 4.20119V11.7999L13.4183 8.00052Z" stroke-width="1.6" stroke="#5AC994" mask="url(#stroke0_0_16)"/>
+</g>
+</g>
+</svg>

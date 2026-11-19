@@ -1,32 +1,28 @@
 @import "tailwindcss";
 
 /*
- * Design tokens — Bhutan NDI hosted page (light theme only).
- * Values approximated from the Figma frames; adjust here once exact tokens
- * are pulled from Figma.
+ * Design tokens — Bhutan NDI hosted page (light theme only; the Figma dark
+ * frames are intentionally not implemented). Values from the Figma file
+ * "Current direction — Bhutan NDI hosted page".
  */
 @theme {
   /* Inter for Latin; Noto Serif Tibetan picks up Dzongkha glyphs. */
   --font-sans: var(--font-inter), var(--font-tibetan), ui-sans-serif, system-ui, sans-serif;
 
-  --color-canvas: #f3f5f4; /* page background */
+  --color-canvas: #eef2f1; /* page background */
   --color-surface: #ffffff; /* cards */
-  --color-line: #e3e8e5; /* separators & borders */
-  --color-ink: #12221d; /* primary text */
-  --color-muted: #5d6c66; /* secondary text */
-  --color-subtle: #8a9792; /* tertiary text */
+  --color-line: #e3e7e6; /* divider, toggle border */
+  --color-ink: #1a1f1f; /* headings */
+  --color-label: #4a5252; /* "Get Support", status lines, inactive toggle */
+  --color-muted: #6f7777; /* body and footer text */
+  --color-disabled: #a3abaa; /* disabled text link */
+  --color-dot: #c2c8c7; /* "·" separator */
 
-  --color-primary: #1e3b33; /* dark green buttons */
-  --color-primary-hover: #152c26;
-  --color-brand: #23845a; /* "Bhutan NDI" text accent (AA on white) */
-  --color-mint: #5dca94; /* logo mint — fills/borders only, not text */
-  --color-brand-soft: #e8f7ef;
-
-  --color-danger: #b9432f;
-  --color-danger-soft: #fbece8;
-  --color-warn: #a86a12;
-  --color-warn-soft: #fcf3e2;
-  --color-neutral-soft: #eef1ef;
+  --color-primary: #124143; /* buttons, active toggle, text links */
+  --color-primary-hover: #0d3133;
+  --color-mint: #5ac994; /* "Bhutan NDI", QR link, Download Now!, QR frame */
+  --color-mint-soft: #e3f4ec; /* status icon circles */
+  --color-tile: #141b29; /* app icon tile */
 }
 
 :root {

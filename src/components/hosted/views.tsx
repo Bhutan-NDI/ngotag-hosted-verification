@@ -4,84 +4,86 @@ import { QRCodeSVG } from "qrcode.react";
 import { useEffect, useState, type ReactNode } from "react";
 import type { View } from "@/lib/flow";
 import { Fmt, useI18n } from "@/lib/i18n/client";
+import { startAgainUrl } from "@/lib/platform";
 import type { DeviceMode, PublicSession } from "@/lib/types";
 import {
+  Asset,
   BrandName,
   cx,
   Divider,
-  GetTheApp,
-  Icon,
+  DoneIcon,
   LanguageToggle,
+  MobileFooter,
   NdiMark,
   PrimaryButton,
   PrimaryLink,
+  QrToggle,
+  ScanSteps,
   Spinner,
-  StatusBadge,
-  Steps,
-  SupportFooter,
-  TextButton,
-  TextLink,
-  WatchGuideButton,
+  StatusIcon,
+  WebFooter,
 } from "./ui";
 
 export interface ViewActions {
-  onContinue?: () => void;
+  onOpenWallet?: () => void;
   onShowQr?: () => void;
   onHideQr?: () => void;
-  onRestart?: () => void;
 }
 
 export interface StateViewProps extends ViewActions {
   view: View;
   mode: DeviceMode;
   session?: PublicSession;
+  /** Design gallery: never navigate on our own (no 20 s auto-return). */
+  preview?: boolean;
 }
 
 /* ------------------------------------------------------------------------ */
 /* Layout                                                                    */
 /* ------------------------------------------------------------------------ */
 
-export function Card({ children, wide = false }: { children: ReactNode; wide?: boolean }) {
-  const { toggleEnabled } = useI18n();
+const cardBase = "relative w-full min-w-0 rounded-3xl bg-surface shadow-[0_4px_16px_rgba(0,0,0,0.06)]";
+
+/**
+ * Card for the Ready family of screens, with the language toggle top-right.
+ * Phone: 358px wide in a 390px frame (Figma 3). Desktop: 586px, content 386px (Figma 3w).
+ */
+function ConnectCard({ mode, children }: { mode: DeviceMode; children: ReactNode }) {
+  const web = mode === "web";
   return (
     <section
       className={cx(
-        "w-full rounded-3xl border border-line bg-surface px-6 pb-8 shadow-[0_1px_2px_rgba(16,34,29,.04),0_8px_24px_-12px_rgba(16,34,29,.12)] sm:px-8",
-        // Without the toggle row, give the content the same top breathing room.
-        toggleEnabled ? "pt-4" : "pt-8",
-        wide ? "max-w-[480px]" : "max-w-[420px]",
+        cardBase,
+        web ? "max-w-[586px] px-5 pb-10 pt-12 sm:px-[100px] sm:pt-10" : "max-w-[420px] px-5 pb-6 pt-7",
       )}
     >
-      {toggleEnabled && (
-        <header className="-mr-2 mb-2 flex justify-end sm:-mr-4">
-          <LanguageToggle />
-        </header>
-      )}
-      <div className="animate-ndi-fade">{children}</div>
+      <LanguageToggle className="absolute right-3 top-3" />
+      <div className={cx("animate-ndi-fade mx-auto flex flex-col items-center", web ? "max-w-[386px] gap-10" : "gap-4")}>
+        {children}
+      </div>
     </section>
   );
 }
 
-function Countdown({ until, label }: { until?: number; label: string }) {
-  const [now, setNow] = useState<number | null>(null);
-  useEffect(() => {
-    setNow(Date.now());
-    const t = setInterval(() => setNow(Date.now()), 1000);
-    return () => clearInterval(t);
-  }, []);
-  if (!until || now === null) return null;
-  const left = Math.max(0, Math.round((until - now) / 1000));
-  const mm = Math.floor(left / 60);
-  const ss = String(left % 60).padStart(2, "0");
+/** "Continue with Bhutan NDI Wallet" / "Scan with …" with an optional return line (DL-009). */
+function TitleStack({ title, session, showReturn }: { title: string; session?: PublicSession; showReturn: boolean }) {
+  const { t } = useI18n();
   return (
-    <p className="text-xs text-subtle">
-      {label} <span className="font-medium tabular-nums text-muted">{`${mm}:${ss}`}</span>
-    </p>
+    <div className="flex flex-col items-center gap-1 text-center">
+      <h1 className="text-[19px] font-semibold leading-tight text-ink">
+        <Fmt text={title} values={{ brand: <BrandName /> }} />
+      </h1>
+      {showReturn && session && (
+        <p className="text-[13px] leading-[18px] text-muted">
+          <Fmt text={t.returnLine} values={{ host: <span className="font-semibold">{session.returnHost}</span> }} />
+        </p>
+      )}
+    </div>
   );
 }
 
 /* ------------------------------------------------------------------------ */
-/* QR / scanned panels                                                       */
+/* QR frame                                                                  */
 /* ------------------------------------------------------------------------ */
 
 /**
@@ -89,201 +91,132 @@ function Countdown({ until, label }: { until?: number; label: string }) {
  * to a 192px PNG (~20 KB) — re-export it if the SVG changes.
  */
 const QR_LOGO = "/qr-logo.png";
+const QR_SIZE = 162;
 
-function QrPanel({ session, size = 208 }: { session?: PublicSession; size?: number }) {
-  // Badge ≈ 24% of the code's width; it carries its own white ring.
-  const logoSize = Math.round(size * 0.24);
+/**
+ * Mint-bordered frame (Figma: 203×197, 3px, radius 20). Holds the QR code, or —
+ * once the wallet has scanned — the "Scanned" status in its place, so the page
+ * layout never moves and a used code can't be scanned again (DL-016).
+ */
+function QrFrame({ session, scanned }: { session?: PublicSession; scanned: boolean }) {
   const { t } = useI18n();
   const value = session?.proofRequestURL;
   return (
-    <div className="flex flex-col items-center gap-3">
-      {/* Mint-bordered frame with generous quiet zone (Figma). */}
-      <div
-        className="grid place-items-center rounded-[22px] border-2 border-mint bg-white"
-        style={{ width: size + 44, height: size + 44 }}
-      >
-        {value ? (
-          // Level H tolerates ~30% damage, so the centre badge stays scannable;
-          // `excavate` clears the modules underneath it.
-          <QRCodeSVG
-            value={value}
-            size={size}
-            level="H"
-            fgColor="#000000"
-            title={t.qrTitle}
-            imageSettings={{
-              src: QR_LOGO,
-              width: logoSize,
-              height: logoSize,
-              excavate: false,
-            }}
-          />
-        ) : (
-          <Spinner className="size-6 text-subtle" />
-        )}
-      </div>
-      <Countdown until={session?.expiresAt} label={t.codeExpiresIn} />
-    </div>
-  );
-}
-
-function ScannedPanel({ session }: { session?: PublicSession }) {
-  const { t } = useI18n();
-  return (
-    <div className="flex flex-col items-center gap-3">
-      <div
-        className="flex w-full flex-col items-center justify-center gap-3 rounded-2xl border-2 border-mint bg-brand-soft/60 px-6 py-8 text-center"
-        role="status"
-      >
-        <span className="grid size-11 place-items-center rounded-full bg-mint text-white">
-          <Icon.Check className="size-6" />
-        </span>
-        <div>
-          <p className="text-base font-semibold text-ink">{t.scanned}</p>
-          <p className="mt-1 text-sm text-muted">
-            <Fmt text={t.scannedBody} values={{ brand: <BrandName /> }} />
-          </p>
+    <div className="flex h-[197px] w-[203px] shrink-0 flex-col items-center justify-center gap-3 rounded-[20px] border-3 border-mint p-4">
+      {scanned ? (
+        <div role="status" aria-live="polite" className="flex flex-col items-center gap-3">
+          <Spinner />
+          <div className="flex flex-col items-center gap-[5px] text-center">
+            <p className="text-[19px] font-semibold text-ink">{t.scanned}</p>
+            <p className="text-sm leading-5 text-muted">{t.scannedBody}</p>
+          </div>
         </div>
-        <p className="inline-flex items-center gap-2 text-xs text-muted">
-          <Spinner className="size-3.5" /> {t.waitingApproval}
-        </p>
-      </div>
-      <Countdown until={session?.approvalDeadline} label={t.approveWithin} />
+      ) : value ? (
+        // The QR code carries the bare invitation only, never the deep link (DL-004).
+        // Level H tolerates ~30% damage, so the centre badge stays scannable.
+        <QRCodeSVG
+          value={value}
+          size={QR_SIZE}
+          level="H"
+          fgColor="#000000"
+          title={t.qrTitle}
+          className="shrink-0"
+          imageSettings={{ src: QR_LOGO, width: 40, height: 40, excavate: false }}
+        />
+      ) : (
+        <Spinner />
+      )}
     </div>
   );
 }
 
 /* ------------------------------------------------------------------------ */
-/* Main screens                                                              */
+/* Ready screens                                                             */
 /* ------------------------------------------------------------------------ */
 
-/** "You'll return to service.gov.bt" under the title (Figma). */
-function Requester({ session }: { session?: PublicSession }) {
-  const { t } = useI18n();
-  if (!session) return null;
-  return (
-    <p className="mt-1.5 text-sm text-muted">
-      <Fmt text={t.returnLine} values={{ host: <span className="font-semibold text-ink">{session.partnerHost}</span> }} />
-    </p>
-  );
-}
-
-/** Mobile: Continue (deep link) — covers ready, opening, still-opening, qr, scanned. */
-function MobileConnect({ view, session, onContinue, onShowQr, onHideQr }: StateViewProps) {
+/**
+ * Phone (Figma 3–5, 8, 9): "Continue" opens the wallet; the QR code expands in
+ * place. Opening/still-opening/scanned only change the button and title stack.
+ */
+function MobileConnect({ view, session, onOpenWallet, onShowQr, onHideQr }: StateViewProps) {
   const { t } = useI18n();
   const opening = view === "opening";
   const stillOpening = view === "still-opening";
   const scanned = view === "scanned";
-  const showQr = view === "qr";
+  const qrOpen = view === "qr" || scanned;
+  // Figma: the return line shows on Ready and QR shown only.
+  const showReturn = view === "ready" || view === "qr";
 
   return (
-    <Card>
-      <div className="flex flex-col items-center text-center">
-        <NdiMark />
-        <h1 className="mt-5 text-xl font-semibold leading-tight tracking-tight">
-          <Fmt text={t.continueTitle} values={{ brand: <BrandName /> }} />
-        </h1>
-        <Requester session={session} />
-      </div>
+    <ConnectCard mode="mobile">
+      <NdiMark />
+      <TitleStack title={t.continueTitle} session={session} showReturn={showReturn} />
 
-      <div className="mt-6 space-y-3">
-        {stillOpening && (
-          <div className="rounded-xl bg-warn-soft px-4 py-3 text-left text-sm text-ink" role="status">
-            <p className="font-medium">{t.stillOpeningTitle}</p>
-            <p className="mt-0.5 text-muted">{t.stillOpeningBody}</p>
-          </div>
-        )}
-
-        <PrimaryButton onClick={onContinue} disabled={opening || scanned || !session?.deepLinkURL}>
-          {opening ? (
-            <>
-              <Spinner className="size-4" /> {t.opening}
-            </>
-          ) : stillOpening ? (
-            <>
-              {t.tryAgain} <Icon.Retry className="size-4" />
-            </>
-          ) : (
-            <>
-              {t.continue} <Icon.ArrowRight className="size-4" />
-            </>
-          )}
-        </PrimaryButton>
-
-        {!scanned && (
-          <div className="text-center">
-            {showQr ? (
-              <TextButton onClick={onHideQr} aria-expanded="true" className="inline-flex items-center gap-1">
-                {t.hideQr} <Icon.ChevronDown className="size-4 rotate-180" />
-              </TextButton>
-            ) : (
-              <TextButton onClick={onShowQr} aria-expanded="false" className="inline-flex items-center gap-1">
-                {t.useQr} <Icon.ChevronDown className="size-4" />
-              </TextButton>
-            )}
-          </div>
-        )}
-      </div>
-
-      {(showQr || scanned) && (
-        <div className="mt-6 animate-ndi-fade">
-          {scanned ? (
-            <ScannedPanel session={session} />
-          ) : (
-            <>
-              <QrPanel session={session} size={184} />
-              <div className="mt-5">
-                <Steps
-                  items={[
-                    <Fmt key="1" text={t.stepOpenOnOtherPhone} values={{ brand: <BrandName /> }} />,
-                    t.stepScanThisCode,
-                  ]}
-                />
-              </div>
-            </>
-          )}
-        </div>
+      {stillOpening && (
+        <p className="text-center text-sm text-label" role="status">
+          {t.walletDidNotOpen}
+        </p>
       )}
 
-      <Divider />
-      <GetTheApp />
-      <SupportFooter />
-    </Card>
+      {opening ? (
+        <PrimaryButton dim="loading" disabled aria-live="polite">
+          <Spinner size={20} />
+          {t.opening}
+        </PrimaryButton>
+      ) : scanned ? (
+        // Native disabled: drops out of the tab order; the "Scanned" status says why (Figma 9).
+        <PrimaryButton dim="disabled" disabled>
+          {t.continue}
+          <Asset src="arrow-right.svg" width={20} height={20} />
+        </PrimaryButton>
+      ) : (
+        <PrimaryButton onClick={onOpenWallet} disabled={!session?.deepLinkURL}>
+          {stillOpening ? t.tryAgain : t.continue}
+          <Asset src={stillOpening ? "rotate-cw.svg" : "arrow-right.svg"} width={20} height={20} />
+        </PrimaryButton>
+      )}
+
+      {qrOpen ? (
+        <div className="animate-ndi-fade flex flex-col items-center gap-4">
+          <QrToggle expanded disabled={scanned} onClick={onHideQr} />
+          <QrFrame session={session} scanned={scanned} />
+          <ScanSteps />
+        </div>
+      ) : (
+        <QrToggle expanded={false} onClick={onShowQr} />
+      )}
+
+      <Divider className={qrOpen ? "mt-2" : undefined} />
+      <MobileFooter />
+    </ConnectCard>
   );
 }
 
-/** Web: QR — covers ready and scanned. */
-function WebScan({ view, session }: StateViewProps) {
+/** Desktop (Figma 3w, 9w): QR code first; "Scanned" replaces it in place. */
+function WebScan({ view, session, onOpenWallet }: StateViewProps) {
   const { t } = useI18n();
   const scanned = view === "scanned";
   return (
-    <Card wide>
-      <div className="flex flex-col items-center text-center">
-        <h1 className="text-xl font-semibold leading-tight tracking-tight">
-          <Fmt text={t.scanTitle} values={{ brand: <BrandName /> }} />
-        </h1>
-        <Requester session={session} />
+    <ConnectCard mode="web">
+      <TitleStack title={t.scanTitle} session={session} showReturn={!scanned} />
+      <QrFrame session={session} scanned={scanned} />
+      <div className="flex w-full flex-col items-center gap-3">
+        <ScanSteps size="lg" />
+        {/*
+          Not in the Figma frame: kept so a wrong device guess is never a dead end
+          (HVP-SD §5.6). Remove if product confirms desktop never needs it.
+        */}
+        {!scanned && session?.deepLinkURL && (
+          <button
+            type="button"
+            onClick={onOpenWallet}
+            className="rounded text-sm font-medium text-muted underline-offset-4 hover:text-ink hover:underline focus-visible:outline-2 focus-visible:outline-primary"
+          >
+          </button>
+        )}
       </div>
-
-      <div className="mt-6">{scanned ? <ScannedPanel session={session} /> : <QrPanel session={session} />}</div>
-
-      <div className="mx-auto mt-6 max-w-[340px]">
-        <Steps
-          done={scanned ? 2 : 0}
-          items={[
-            <Fmt key="1" text={t.stepOpenOnPhone} values={{ brand: <BrandName /> }} />,
-            <Fmt key="2" text={t.stepTapScan} values={{ scan: <Icon.Scan className="inline size-4 align-[-3px]" /> }} />,
-            t.stepApprove,
-          ]}
-        />
-      </div>
-
-      <WatchGuideButton className="mt-6" />
-
-      <Divider />
-      <GetTheApp />
-      <SupportFooter />
-    </Card>
+      <WebFooter />
+    </ConnectCard>
   );
 }
 
@@ -291,70 +224,109 @@ function WebScan({ view, session }: StateViewProps) {
 /* Status screens                                                            */
 /* ------------------------------------------------------------------------ */
 
+/**
+ * Centred status card (Figma 2, 6, 7, 10–17). No language toggle and no footer.
+ * Phone: 358px; desktop: 480px with a 400px column.
+ */
 export function Status({
-  badge,
+  mode,
+  icon,
   title,
   body,
   children,
-  footer,
 }: {
-  badge: ReactNode;
+  mode: DeviceMode;
+  icon: ReactNode;
   title: ReactNode;
   body?: ReactNode;
   children?: ReactNode;
-  footer?: ReactNode;
 }) {
+  const web = mode === "web";
   return (
-    <Card>
-      <div className="flex flex-col items-center text-center" role="status" aria-live="polite">
-        {badge}
-        <h1 className="mt-5 text-xl font-semibold leading-tight tracking-tight">{title}</h1>
-        {body && <p className="mt-2 max-w-[330px] text-sm leading-6 text-muted">{body}</p>}
+    <section className={cx(cardBase, web ? "max-w-[480px] px-5 pb-8 pt-10 sm:px-10" : "max-w-[420px] px-5 pb-7 pt-9")}>
+      <div className="animate-ndi-fade flex flex-col items-center gap-5 text-center" role="status" aria-live="polite">
+        {icon}
+        <div className="flex flex-col items-center gap-2">
+          <h1 className="text-xl font-semibold leading-tight text-ink">{title}</h1>
+          {body && <p className="max-w-[400px] text-sm leading-[21px] text-muted">{body}</p>}
+        </div>
+        {children}
       </div>
-      {children && <div className="mt-6 flex flex-col items-center gap-3">{children}</div>}
-      {footer}
-    </Card>
+    </section>
   );
 }
 
-function returnHref(session?: PublicSession) {
-  return session ? `/api/sessions/${encodeURIComponent(session.id)}/return` : undefined;
-}
-
+/** Where "Return to <host>" goes: the coded returnUrl when there is one, else the bare redirectUri. */
 function ReturnButton({ session }: { session?: PublicSession }) {
   const { t } = useI18n();
-  const href = returnHref(session);
+  const href = session?.returnUrl ?? session?.redirectUri;
   if (!href || !session) return null;
   return (
     <PrimaryLink href={href}>
-      <Fmt text={t.returnTo} values={{ host: session.partnerHost }} />
+      <Fmt text={t.returnTo} values={{ host: session.returnHost }} />
     </PrimaryLink>
   );
 }
 
-function CancelLink({ session }: { session?: PublicSession }) {
+/** "Start again at <host>": redirectUri with error=expired (DL-013). */
+function StartAgainButton({ session }: { session?: PublicSession }) {
   const { t } = useI18n();
-  const href = returnHref(session);
-  if (!href || !session) return null;
+  if (!session?.redirectUri) return null;
   return (
-    <TextLink href={href}>
-      <Fmt text={t.cancelReturn} values={{ host: session.partnerHost }} />
-    </TextLink>
+    <PrimaryLink href={startAgainUrl(session.redirectUri)}>
+      <Fmt text={t.startAgainAt} values={{ host: session.returnHost }} />
+    </PrimaryLink>
   );
 }
 
-function RestartActions({ session, onRestart }: { session?: PublicSession; onRestart?: () => void }) {
+const AUTO_RETURN_SECONDS = 20;
+
+/**
+ * Figma 13: "Taking you back to <host> in 20 seconds" + "Stay on this page"
+ * (WCAG 2.2.1: at least 20 s and a way to stop it).
+ * NOTE: departs from DL-013 ("the page does not redirect on its own") — the
+ * decision log needs a superseding entry. To keep DL-013's concern for a user who
+ * stepped away, the countdown only runs while the tab is visible.
+ */
+function AutoReturn({ session, paused = false }: { session?: PublicSession; paused?: boolean }) {
   const { t } = useI18n();
-  if (!session?.canRestart) return <ReturnButton session={session} />;
+  const [seconds, setSeconds] = useState(AUTO_RETURN_SECONDS);
+  const [stayed, setStayed] = useState(false);
+  const href = session?.redirectUri ? startAgainUrl(session.redirectUri) : undefined;
+
+  useEffect(() => {
+    if (!href || stayed || paused) return;
+    const tick = setInterval(() => {
+      if (document.visibilityState !== "visible") return; // paused while hidden
+      setSeconds((s) => Math.max(0, s - 1));
+    }, 1000);
+    return () => clearInterval(tick);
+  }, [href, stayed, paused]);
+
+  useEffect(() => {
+    if (href && !stayed && seconds === 0) window.location.assign(href);
+  }, [href, stayed, seconds]);
+
+  if (!href || stayed) return null;
   return (
     <>
-      <PrimaryButton onClick={onRestart}>
-        {t.startAgain} <Icon.Retry className="size-4" />
-      </PrimaryButton>
-      <CancelLink session={session} />
+      <p className="text-[13px] text-muted">
+        <Fmt text={t.autoReturn} values={{ host: session!.returnHost, seconds: <span className="tabular-nums">{seconds}</span> }} />
+      </p>
+      <button
+        type="button"
+        onClick={() => setStayed(true)}
+        className="rounded text-[13px] font-semibold text-primary underline underline-offset-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+      >
+        {t.stayHere}
+      </button>
     </>
   );
 }
+
+/** The request's lifetime in whole minutes, when the platform sends it. */
+const lifetimeMinutes = (s?: PublicSession) =>
+  s?.validForSeconds ? String(Math.max(1, Math.round(s.validForSeconds / 60))) : undefined;
 
 /* ------------------------------------------------------------------------ */
 /* Router                                                                    */
@@ -362,10 +334,9 @@ function RestartActions({ session, onRestart }: { session?: PublicSession; onRes
 
 export function StateView(props: StateViewProps) {
   const { t } = useI18n();
-  const { view, mode, session } = props;
-  const host = session?.partnerHost ?? "";
-  const partner = session?.partnerName ?? host;
-  const brand = <BrandName />;
+  const { view, mode, session, preview } = props;
+  const host = session?.returnHost ?? "";
+  const minutes = lifetimeMinutes(session);
 
   switch (view) {
     case "ready":
@@ -377,77 +348,54 @@ export function StateView(props: StateViewProps) {
     case "scanned":
       return mode === "web" ? <WebScan {...props} /> : <MobileConnect {...props} />;
 
+    // First paint: NDI branding only, no service name (Figma 2).
     case "loading":
-      return (
-        <Status
-          badge={
-            <StatusBadge tone="neutral">
-              <Spinner className="size-6" />
-            </StatusBadge>
-          }
-          title={t.loadingTitle}
-          body={t.loadingBody}
-        />
-      );
+      return <Status mode={mode} icon={<Spinner />} title={t.loadingTitle} body={t.loadingBody} />;
 
+    // Deep link tapped: the wallet returns the user; no redirect of our own (DL-007, Figma 6).
     case "waiting":
       return (
         <Status
-          badge={<NdiMark />}
-          title={<Fmt text={t.waitingTitle} values={{ brand }} />}
+          mode={mode}
+          icon={<StatusIcon name="smartphone" />}
+          title={t.waitingTitle}
           body={<Fmt text={t.waitingBody} values={{ host }} />}
-        >
-          <p className="inline-flex items-center gap-2 text-xs text-muted">
-            <Spinner className="size-3.5" /> {t.waitingResponse}
-          </p>
-          <PrimaryButton onClick={props.onContinue} disabled={!session?.deepLinkURL}>
-            {t.openWallet} <Icon.ArrowRight className="size-4" />
-          </PrimaryButton>
-          <CancelLink session={session} />
-        </Status>
-      );
-
-    case "returning":
-      return (
-        <Status
-          badge={
-            <StatusBadge tone="success">
-              <Icon.Check className="size-7" />
-            </StatusBadge>
-          }
-          title={t.doneTitle}
-          body={<Fmt text={t.returningBody} values={{ host }} />}
-        >
-          <Spinner className="size-5 text-subtle" />
-          {returnHref(session) && <TextLink href={returnHref(session)}>{t.notRedirected}</TextLink>}
-        </Status>
-      );
-
-    case "done-elsewhere":
-      return (
-        <Status
-          badge={
-            <StatusBadge tone="success">
-              <Icon.Check className="size-7" />
-            </StatusBadge>
-          }
-          title={t.doneElsewhereTitle}
-          body={t.doneElsewhereBody}
         >
           <ReturnButton session={session} />
         </Status>
       );
 
+    // Deep-link mode, completed or no longer found: neutral, manual return only (DL-007, Figma 7).
+    case "returned":
+      return (
+        <Status
+          mode={mode}
+          icon={<StatusIcon name="new-tab" />}
+          title={t.returnedTitle}
+          body={<Fmt text={t.returnedBody} values={{ host }} />}
+        >
+          <ReturnButton session={session} />
+        </Status>
+      );
+
+    // Completed (cross-device): leave within seconds (§5.6, Figma 10).
+    case "returning":
+      return (
+        <Status
+          mode={mode}
+          icon={<DoneIcon />}
+          title={t.doneTitle}
+          body={<Fmt text={t.returningBody} values={{ host: <span className="font-medium">{host}</span> }} />}
+        />
+      );
+
     case "declined":
       return (
         <Status
-          badge={
-            <StatusBadge tone="neutral">
-              <Icon.X className="size-6" />
-            </StatusBadge>
-          }
+          mode={mode}
+          icon={<StatusIcon name="circle-x" />}
           title={t.declinedTitle}
-          body={<Fmt text={t.declinedBody} values={{ partner }} />}
+          body={<Fmt text={t.declinedBody} values={{ host }} />}
         >
           <ReturnButton session={session} />
         </Status>
@@ -456,14 +404,10 @@ export function StateView(props: StateViewProps) {
     case "failed":
       return (
         <Status
-          badge={
-            <StatusBadge tone="danger">
-              <Icon.Alert className="size-6" />
-            </StatusBadge>
-          }
+          mode={mode}
+          icon={<StatusIcon name="triangle-alert" />}
           title={t.failedTitle}
-          body={t.failedBody}
-          footer={<SupportFooter />}
+          body={<Fmt text={t.failedBody} values={{ host }} />}
         >
           <ReturnButton session={session} />
         </Status>
@@ -472,89 +416,53 @@ export function StateView(props: StateViewProps) {
     case "expired":
       return (
         <Status
-          badge={
-            <StatusBadge tone="warn">
-              <Icon.Hourglass className="size-6" />
-            </StatusBadge>
-          }
+          mode={mode}
+          icon={<StatusIcon name="hourglass" />}
           title={t.expiredTitle}
-          body={t.expiredBody}
+          body={<Fmt text={minutes ? t.expiredBodyMinutes : t.expiredBody} values={{ host, minutes }} />}
         >
-          <RestartActions session={session} onRestart={props.onRestart} />
+          <StartAgainButton session={session} />
+          <AutoReturn session={session} paused={preview} />
         </Status>
       );
 
+    // Scanned but unanswered until the deadline (DL-016, Figma 14).
     case "timed-out":
       return (
         <Status
-          badge={
-            <StatusBadge tone="warn">
-              <Icon.Clock className="size-6" />
-            </StatusBadge>
-          }
+          mode={mode}
+          icon={<StatusIcon name="clock" />}
           title={t.timedOutTitle}
-          body={t.timedOutBody}
+          body={<Fmt text={minutes ? t.timedOutBodyMinutes : t.timedOutBody} values={{ host, minutes }} />}
         >
-          <RestartActions session={session} onRestart={props.onRestart} />
+          <StartAgainButton session={session} />
         </Status>
       );
 
+    // Unknown or already-expired link: no way back — the page never learned the host (DL-013, Figma 15).
     case "not-found":
-      return (
-        <Status
-          badge={
-            <StatusBadge tone="neutral">
-              <Icon.LinkOff className="size-6" />
-            </StatusBadge>
-          }
-          title={t.notFoundTitle}
-          body={t.notFoundBody}
-          footer={<SupportFooter />}
-        />
-      );
+      return <Status mode={mode} icon={<StatusIcon name="link-off" />} title={t.notFoundTitle} body={t.notFoundBody} />;
 
-    case "reconnecting":
+    // Loaded, then the status check stopped finding it (Figma 17).
+    case "gone":
       return (
         <Status
-          badge={
-            <StatusBadge tone="warn">
-              <Icon.WifiOff className="size-6" />
-            </StatusBadge>
-          }
-          title={t.reconnectingTitle}
-          body={t.reconnectingBody}
-        >
-          <Spinner className="size-5 text-subtle" />
-        </Status>
-      );
-
-    case "unavailable":
-      return (
-        <Status
-          badge={
-            <StatusBadge tone="neutral">
-              <Icon.Ban className="size-6" />
-            </StatusBadge>
-          }
+          mode={mode}
+          icon={<StatusIcon name="link-off" />}
           title={t.notFoundTitle}
-          body={<Fmt text={t.unavailableBody} values={{ host }} />}
+          body={<Fmt text={t.goneBody} values={{ host }} />}
         >
           <ReturnButton session={session} />
         </Status>
       );
+
+    // Polling errors: keeps retrying on its own, so no button (Figma 16).
+    case "reconnecting":
+      return <Status mode={mode} icon={<Spinner />} title={t.reconnectingTitle} body={t.reconnectingBody} />;
   }
 }
 
-/** Page frame: centred card on the canvas. */
-export function Frame({ children, mode }: { children: ReactNode; mode: DeviceMode }) {
-  return (
-    <main
-      className={cx(
-        "flex min-h-dvh w-full justify-center px-4",
-        mode === "web" ? "items-center py-10" : "items-start py-4 sm:items-center sm:py-10",
-      )}
-    >
-      {children}
-    </main>
-  );
+/** Page frame: the card on the canvas, 16px side gutters, 32px from the top (Figma). */
+export function Frame({ children }: { children: ReactNode; mode?: DeviceMode }) {
+  return <main className="flex min-h-dvh w-full items-start justify-center px-4 pb-8 pt-8 sm:pt-16">{children}</main>;
 }
