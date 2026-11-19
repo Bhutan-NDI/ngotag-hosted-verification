@@ -1,26 +1,95 @@
 @import "tailwindcss";
 
+/*
+ * Design tokens — Bhutan NDI hosted page (light theme only).
+ * Values approximated from the Figma frames; adjust here once exact tokens
+ * are pulled from Figma.
+ */
+@theme {
+  /* Inter for Latin; Noto Serif Tibetan picks up Dzongkha glyphs. */
+  --font-sans: var(--font-inter), var(--font-tibetan), ui-sans-serif, system-ui, sans-serif;
+
+  --color-canvas: #f3f5f4; /* page background */
+  --color-surface: #ffffff; /* cards */
+  --color-line: #e3e8e5; /* separators & borders */
+  --color-ink: #12221d; /* primary text */
+  --color-muted: #5d6c66; /* secondary text */
+  --color-subtle: #8a9792; /* tertiary text */
+
+  --color-primary: #1e3b33; /* dark green buttons */
+  --color-primary-hover: #152c26;
+  --color-brand: #23845a; /* "Bhutan NDI" text accent (AA on white) */
+  --color-mint: #5dca94; /* logo mint — fills/borders only, not text */
+  --color-brand-soft: #e8f7ef;
+
+  --color-danger: #b9432f;
+  --color-danger-soft: #fbece8;
+  --color-warn: #a86a12;
+  --color-warn-soft: #fcf3e2;
+  --color-neutral-soft: #eef1ef;
+}
+
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  color-scheme: light;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+html,
+body {
+  background: var(--color-canvas);
+  color: var(--color-ink);
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+/*
+ * Dzongkha: heavier strokes, and tall lines — Tibetan stacks letters above
+ * and below the baseline, so Latin line-heights (leading-tight etc.) collide.
+ */
+html:lang(dz) body {
+  font-weight: 500;
+  line-height: 1.75;
+}
+html:lang(dz) :is(h1, h2, p, li, a, button, dt, dd) {
+  line-height: 1.75;
+}
+html:lang(dz) .font-medium {
+  font-weight: 600;
+}
+html:lang(dz) .font-semibold,
+html:lang(dz) h1 {
+  font-weight: 700;
+}
+
+@keyframes ndi-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes ndi-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.animate-ndi-spin {
+  animation: ndi-spin 0.9s linear infinite;
+}
+
+.animate-ndi-fade {
+  animation: ndi-fade-in 0.2s ease-out both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-ndi-fade {
+    animation: none;
+  }
 }
