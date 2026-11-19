@@ -1,8 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useReducer, useRef } from "react";
-import { flowReducer, initialFlow, isTerminal } from "@/lib/flow";
-import { fetchHostedRequest, fetchHostedStatus, NotFoundError } from "@/lib/platform";
+import { flowReducer, initialFlow } from "@/lib/flow";
+import { fetchHostedRequest, fetchHostedStatus, NotFoundError, RateLimitedError } from "@/lib/platform";
 import type { DeviceMode } from "@/lib/types";
 import { Frame, StateView } from "./views";
 
@@ -12,6 +12,11 @@ const SLOW_POLL_MS = 4000; // after that (3–5 s)
 const FAST_PHASE_MS = 60_000;
 const MAX_BACKOFF_MS = 15_000;
 const ERRORS_BEFORE_RECONNECTING = 2;
+/**
+ * The platform reports `pending` until the deadline plus its 30 s grace (REQUEST_DEADLINE_GRACE_SECONDS),
+ * so a result that lands just after the deadline is still delivered. Keep listening that long, plus a margin.
+ */
+const LISTEN_AFTER_DEADLINE_MS = 35_000;
 
 const OPEN_TIMEOUT_MS = 4000;
 /** Brief "Done" before leaving: the terminal session is kept only ~60 s (HVP-SD §5.6, E4). */
@@ -25,9 +30,10 @@ interface Props {
 
 export function HostedFlow({ hostedId, apiBaseUrl, mode }: Props) {
   const [state, dispatch] = useReducer(flowReducer, initialFlow);
-  const { view, session } = state;
+  const { view, session, settled } = state;
   const loaded = Boolean(session);
-  const terminal = isTerminal(view);
+  const expiresAt = session?.expiresAt;
+  const channelRef = useRef<BroadcastChannel | null>(null);
 
   /* -- 1. Load the request once (retry with back-off on network errors) ---- */
   useEffect(() => {
@@ -45,7 +51,9 @@ export function HostedFlow({ hostedId, apiBaseUrl, mode }: Props) {
         if (ctrl.signal.aborted) return;
         if (err instanceof NotFoundError) return dispatch({ type: "not-found" });
         attempt += 1;
-        if (attempt >= ERRORS_BEFORE_RECONNECTING) dispatch({ type: "connection-lost" });
+        if (!(err instanceof RateLimitedError) && attempt >= ERRORS_BEFORE_RECONNECTING) {
+          dispatch({ type: "connection-lost" });
+        }
         timer = setTimeout(load, Math.min(1000 * 2 ** attempt, MAX_BACKOFF_MS));
       }
     };
@@ -58,8 +66,9 @@ export function HostedFlow({ hostedId, apiBaseUrl, mode }: Props) {
 
   /* -- 2. Poll status (DL-008): fast then slow, pause when hidden, back off -- */
   useEffect(() => {
-    if (!loaded || terminal) return;
+    if (!loaded || settled || expiresAt === undefined) return;
     const ctrl = new AbortController();
+    const stopAt = expiresAt + LISTEN_AFTER_DEADLINE_MS;
     const startedAt = Date.now();
     let timer: ReturnType<typeof setTimeout> | undefined;
     let errors = 0;
@@ -68,13 +77,14 @@ export function HostedFlow({ hostedId, apiBaseUrl, mode }: Props) {
     const schedule = () => {
       clearTimeout(timer);
       if (ctrl.signal.aborted || document.visibilityState === "hidden") return; // paused
+      if (Date.now() >= stopAt) return; // the platform can no longer change the answer
       const base = Date.now() - startedAt < FAST_PHASE_MS ? FAST_POLL_MS : SLOW_POLL_MS;
       const delay = errors ? Math.min(base * 2 ** errors, MAX_BACKOFF_MS) : base;
       timer = setTimeout(poll, delay);
     };
 
     const poll = async () => {
-      if (inFlight || ctrl.signal.aborted) return;
+      if (inFlight || ctrl.signal.aborted || Date.now() >= stopAt) return;
       inFlight = true;
       try {
         const response = await fetchHostedStatus(apiBaseUrl, hostedId, ctrl.signal);
@@ -89,7 +99,10 @@ export function HostedFlow({ hostedId, apiBaseUrl, mode }: Props) {
           return;
         }
         errors += 1;
-        if (errors >= ERRORS_BEFORE_RECONNECTING) dispatch({ type: "connection-lost" });
+        // A 429 only means "slower": back off quietly instead of showing "Reconnecting".
+        if (!(err instanceof RateLimitedError) && errors >= ERRORS_BEFORE_RECONNECTING) {
+          dispatch({ type: "connection-lost" });
+        }
       } finally {
         inFlight = false;
       }
@@ -110,15 +123,17 @@ export function HostedFlow({ hostedId, apiBaseUrl, mode }: Props) {
       clearTimeout(timer);
       document.removeEventListener("visibilitychange", onVisible);
     };
-  }, [apiBaseUrl, hostedId, loaded, terminal]);
+  }, [apiBaseUrl, hostedId, loaded, settled, expiresAt]);
 
-  /* -- 3. The shared deadline (DL-017): expire even if nothing was scanned -- */
-  const expiresAt = session?.expiresAt;
+  /* -- 3. The shared deadline (DL-017): expire even if nothing was scanned -----
+   * Only the screen changes; polling goes on through the platform's grace period (see 2). */
   useEffect(() => {
-    if (!expiresAt || terminal) return;
-    const t = setTimeout(() => dispatch({ type: "deadline" }), Math.max(0, expiresAt - Date.now()));
+    if (!expiresAt || settled) return;
+    // setTimeout overflows above ~24.8 days; no request lives that long.
+    const delay = Math.min(Math.max(0, expiresAt - Date.now()), 2 ** 31 - 1);
+    const t = setTimeout(() => dispatch({ type: "deadline" }), delay);
     return () => clearTimeout(t);
-  }, [expiresAt, terminal]);
+  }, [expiresAt, settled]);
 
   /* -- 4. Wallet deep link: "still opening", and leaving for the app -------- */
   useEffect(() => {
@@ -148,16 +163,49 @@ export function HostedFlow({ hostedId, apiBaseUrl, mode }: Props) {
     window.location.href = deepLink;
   }, [deepLink]);
 
-  /* -- 5. Completed (cross-device): go back with the response_code at once --- */
+  /* -- 5. Same page open in two tabs: only one returns with the code --------- */
+  useEffect(() => {
+    if (typeof BroadcastChannel === "undefined") return;
+    const ch = new BroadcastChannel(`ndi-hosted-${hostedId}`);
+    channelRef.current = ch;
+    ch.onmessage = (e) => {
+      if (e.data === "returning") dispatch({ type: "returned-elsewhere" });
+    };
+    return () => {
+      ch.close();
+      channelRef.current = null;
+    };
+  }, [hostedId]);
+
+  /* -- 6. Completed: go back with the response_code at once -------------------
+   * On a laptop and after the deep link alike: the wallet was given no returnUrl, so it can't. */
   const returnUrl = session?.returnUrl;
   const navigated = useRef(false);
   useEffect(() => {
     if (view !== "returning" || !returnUrl || navigated.current) return;
-    const t = setTimeout(() => {
-      navigated.current = true;
-      window.location.replace(returnUrl);
-    }, RETURN_DELAY_MS);
-    return () => clearTimeout(t);
+    let t: ReturnType<typeof setTimeout> | undefined;
+    const go = () => {
+      channelRef.current?.postMessage("returning");
+      t = setTimeout(() => {
+        navigated.current = true;
+        window.location.replace(returnUrl);
+      }, RETURN_DELAY_MS);
+    };
+    // A background tab waits until it is visible, so the tab in front wins.
+    if (document.visibilityState === "visible") {
+      go();
+      return () => clearTimeout(t);
+    }
+    const onVisible = () => {
+      if (document.visibilityState !== "visible") return;
+      document.removeEventListener("visibilitychange", onVisible);
+      go();
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      document.removeEventListener("visibilitychange", onVisible);
+      clearTimeout(t);
+    };
   }, [view, returnUrl]);
 
   return (

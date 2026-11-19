@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { config } from "@/lib/server/config";
-import { createMockSession } from "@/lib/server/mockPlatform";
+import { createMockSession, markMockCodeUsed } from "@/lib/server/mockPlatform";
 
 export const dynamic = "force-dynamic";
 
@@ -25,6 +25,8 @@ export default async function Home({
     const seconds = Math.min(Math.max(Number(ttl) || 600, 10), 3600); // ?ttl=30 to test expiry
     redirect(`/v/${createMockSession(seconds)}`);
   }
+  // Like a real relying party: exchange the code (single use). The page then reads `completed` without returnUrl.
+  markMockCodeUsed(response_code);
 
   return (
     <main className="flex min-h-dvh items-center justify-center px-3 py-10 min-[380px]:px-4">

@@ -19,20 +19,32 @@ export class NotFoundError extends Error {
   }
 }
 
+/** 429: too many reads for this page (DL-008). Slow down; the connection itself is fine. */
+export class RateLimitedError extends Error {
+  constructor() {
+    super("rate limited");
+  }
+}
+
+/** A read that takes longer than this is abandoned, so one hung request can't stop polling. */
+const REQUEST_TIMEOUT_MS = 8000;
+
 function endpoint(apiBaseUrl: string, hostedId: string, suffix = "") {
   return `${apiBaseUrl.replace(/\/+$/, "")}/verification/hosted/${encodeURIComponent(hostedId)}${suffix}`;
 }
 
 async function getJson(url: string, signal?: AbortSignal): Promise<unknown> {
+  const timeout = AbortSignal.timeout(REQUEST_TIMEOUT_MS);
   const res = await fetch(url, {
     method: "GET",
     headers: { Accept: "application/json" },
     cache: "no-store",
     credentials: "omit",
     referrerPolicy: "no-referrer",
-    signal,
+    signal: signal ? AbortSignal.any([signal, timeout]) : timeout,
   });
   if (res.status === 404 || res.status === 410) throw new NotFoundError();
+  if (res.status === 429) throw new RateLimitedError();
   if (!res.ok) throw new Error(`platform responded ${res.status}`);
   return res.json();
 }
