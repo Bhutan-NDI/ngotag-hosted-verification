@@ -42,16 +42,21 @@ export interface StateViewProps extends ViewActions {
 /* ------------------------------------------------------------------------ */
 
 export function Card({ children, wide = false }: { children: ReactNode; wide?: boolean }) {
+  const { toggleEnabled } = useI18n();
   return (
     <section
       className={cx(
-        "w-full rounded-3xl border border-line bg-surface px-6 pb-8 pt-4 shadow-[0_1px_2px_rgba(16,34,29,.04),0_8px_24px_-12px_rgba(16,34,29,.12)] sm:px-8",
+        "w-full rounded-3xl border border-line bg-surface px-6 pb-8 shadow-[0_1px_2px_rgba(16,34,29,.04),0_8px_24px_-12px_rgba(16,34,29,.12)] sm:px-8",
+        // Without the toggle row, give the content the same top breathing room.
+        toggleEnabled ? "pt-4" : "pt-8",
         wide ? "max-w-[480px]" : "max-w-[420px]",
       )}
     >
-      <header className="-mr-2 mb-2 flex justify-end sm:-mr-4">
-        <LanguageToggle />
-      </header>
+      {toggleEnabled && (
+        <header className="-mr-2 mb-2 flex justify-end sm:-mr-4">
+          <LanguageToggle />
+        </header>
+      )}
       <div className="animate-ndi-fade">{children}</div>
     </section>
   );

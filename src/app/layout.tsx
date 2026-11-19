@@ -3,6 +3,7 @@ import { Inter } from "next/font/google";
 import localFont from "next/font/local";
 import { I18nProvider } from "@/lib/i18n/client";
 import { requestLang } from "@/lib/i18n/server";
+import { config } from "@/lib/server/config";
 import "./globals.css";
 
 const inter = Inter({ variable: "--font-inter", subsets: ["latin"] });
@@ -46,7 +47,9 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
     // and it can only resolve var(--font-inter)/var(--font-tibetan) there.
     <html lang={lang} className={`${inter.variable} ${tibetan.variable}`}>
       <body className="antialiased">
-        <I18nProvider initialLang={lang}>{children}</I18nProvider>
+        <I18nProvider initialLang={lang} toggleEnabled={config.languageToggle}>
+          {children}
+        </I18nProvider>
       </body>
     </html>
   );

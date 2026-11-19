@@ -7,11 +7,26 @@ interface I18n {
   lang: Lang;
   t: Messages;
   setLang: (l: Lang) => void;
+  /** Whether the EN / Dzongkha switch is shown (ENABLE_LANGUAGE_TOGGLE). */
+  toggleEnabled: boolean;
 }
 
-const Ctx = createContext<I18n>({ lang: DEFAULT_LANG, t: messages[DEFAULT_LANG], setLang: () => {} });
+const Ctx = createContext<I18n>({
+  lang: DEFAULT_LANG,
+  t: messages[DEFAULT_LANG],
+  setLang: () => {},
+  toggleEnabled: true,
+});
 
-export function I18nProvider({ initialLang, children }: { initialLang: Lang; children: ReactNode }) {
+export function I18nProvider({
+  initialLang,
+  toggleEnabled = true,
+  children,
+}: {
+  initialLang: Lang;
+  toggleEnabled?: boolean;
+  children: ReactNode;
+}) {
   const [lang, setLangState] = useState<Lang>(initialLang);
   const setLang = useCallback((l: Lang) => {
     setLangState(l);
@@ -19,7 +34,7 @@ export function I18nProvider({ initialLang, children }: { initialLang: Lang; chi
     const secure = location.protocol === "https:" ? "; Secure" : "";
     document.cookie = `${LANG_COOKIE}=${l}; Path=/; Max-Age=31536000; SameSite=Lax${secure}`;
   }, []);
-  return <Ctx.Provider value={{ lang, t: messages[lang], setLang }}>{children}</Ctx.Provider>;
+  return <Ctx.Provider value={{ lang, t: messages[lang], setLang, toggleEnabled }}>{children}</Ctx.Provider>;
 }
 
 export const useI18n = () => useContext(Ctx);

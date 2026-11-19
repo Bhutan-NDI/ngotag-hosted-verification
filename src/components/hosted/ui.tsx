@@ -146,9 +146,10 @@ export function BrandName() {
   return <span className="text-brand">Bhutan NDI</span>;
 }
 
-/** EN | རྫོང segmented switch. */
+/** EN | རྫོང་ཁ segmented switch. Hidden when ENABLE_LANGUAGE_TOGGLE=false. */
 export function LanguageToggle() {
-  const { lang, setLang, t } = useI18n();
+  const { lang, setLang, t, toggleEnabled } = useI18n();
+  if (!toggleEnabled) return null;
   return (
     <div
       role="group"

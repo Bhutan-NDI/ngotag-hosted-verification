@@ -51,6 +51,9 @@ export const config = {
   /** /preview gallery: on with mock, otherwise opt-in. */
   previewEnabled: bool("ENABLE_PREVIEW", bool("NDI_MOCK", !isProd)),
 
+  /** Show the EN / Dzongkha switch. When off, every page is in English. */
+  languageToggle: bool("ENABLE_LANGUAGE_TOGGLE", true),
+
   redisUrl: process.env.REDIS_URL ?? "",
   logLevel: (process.env.LOG_LEVEL ?? (isProd ? "info" : "debug")) as "debug" | "info" | "warn" | "error",
 
