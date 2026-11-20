@@ -52,7 +52,7 @@ export function PreviewGallery() {
       <header className="mx-auto mb-8 flex max-w-[1600px] flex-wrap items-center justify-between gap-4">
         <div>
           <h1 className="text-xl font-semibold text-ink">Hosted page — all screens</h1>
-          <p className="text-sm text-muted">Dev only (MOCK_PLATFORM). Demo data; links are live, nothing redirects on its own.</p>
+          <p className="text-sm text-muted">Design QA (ENABLE_PREVIEW). Demo data; links are live, nothing redirects on its own.</p>
         </div>
         <div className="flex rounded-full border border-line bg-surface p-1">
           {(["mobile", "web"] as const).map((m) => (

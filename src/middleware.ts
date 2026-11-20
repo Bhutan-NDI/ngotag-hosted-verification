@@ -63,8 +63,8 @@ export const config = {
   runtime: "nodejs",
   matcher: [
     {
-      // Pages only — skip API routes, the dev mock platform, static assets and prefetches.
-      source: "/((?!api|mock-platform|_next/static|_next/image|favicon.ico|badges|.*\\.(?:png|svg|ico)$).*)",
+      // Pages only — skip API routes, static assets and prefetches.
+      source: "/((?!api|_next/static|_next/image|favicon.ico|badges|.*\\.(?:png|svg|ico)$).*)",
       missing: [
         { type: "header", key: "next-router-prefetch" },
         { type: "header", key: "purpose", value: "prefetch" },

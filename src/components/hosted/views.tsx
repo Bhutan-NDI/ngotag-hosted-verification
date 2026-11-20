@@ -256,10 +256,13 @@ export function Status({
   );
 }
 
-/** Where "Return to <host>" goes: the coded returnUrl when there is one, else the bare redirectUri. */
+/**
+ * "Return to <host>": only with the coded returnUrl. A bare redirectUri would reach the relying
+ * party with neither a response_code nor an error, a return it has no way to handle (DL-013).
+ */
 function ReturnButton({ session }: { session?: PublicSession }) {
   const { t } = useI18n();
-  const href = session?.returnUrl ?? session?.redirectUri;
+  const href = session?.returnUrl;
   if (!href || !session) return null;
   return (
     <PrimaryLink href={href}>
@@ -352,7 +355,8 @@ export function StateView(props: StateViewProps) {
     case "loading":
       return <Status mode={mode} icon={<Spinner />} title={t.loadingTitle} body={t.loadingBody} />;
 
-    // Deep link tapped: the wallet returns the user; no redirect of our own (DL-007, Figma 6).
+    // Deep link tapped: the user approves in the wallet and comes back to this tab, which then
+    // returns them itself once the proof completes (the wallet has no returnUrl to open).
     case "waiting":
       return (
         <Status
@@ -365,7 +369,8 @@ export function StateView(props: StateViewProps) {
         </Status>
       );
 
-    // Deep-link mode, completed or no longer found: neutral, manual return only (DL-007, Figma 7).
+    // Done, with nothing left to hand over here: another tab returned with the code, the code was
+    // already used, or the request vanished after the deep link (Figma 7). Return only with a code.
     case "returned":
       return (
         <Status
@@ -452,7 +457,8 @@ export function StateView(props: StateViewProps) {
           title={t.notFoundTitle}
           body={<Fmt text={t.goneBody} values={{ host }} />}
         >
-          <ReturnButton session={session} />
+          {/* No code to hand over: back to the relying party the one way it handles (DL-013). */}
+          <StartAgainButton session={session} />
         </Status>
       );
 

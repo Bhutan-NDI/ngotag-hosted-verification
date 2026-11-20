@@ -42,16 +42,30 @@ npm install
 npm run dev
 ```
 
-With `MOCK_PLATFORM=true` (the default in development), a built-in mock of the two platform endpoints runs under `/mock-platform`:
+Point the page at a running platform api-gateway (ngotag-platform with PRs #144 hosted session and #145 scanned):
 
-- **http://localhost:3000/** plays the relying party: it creates a mock request and opens its page, so the QR code appears at once. Add `?ttl=30` to test expiry. It is also the mock `redirectUri`, so a completed request comes back to it with the `response_code`.
-- Move a request on as the wallet would:
-  ```bash
-  curl -X POST localhost:3000/mock-platform/verification/hosted/<hostedId>/simulate -d '{"action":"scan"}'
-  # actions: scan | complete | decline | fail | expire
-  ```
+```bash
+# .env.local
+PLATFORM_API_URL=http://localhost:5000
+```
 
-To develop against a real platform instead, set `PLATFORM_API_URL` and `MOCK_PLATFORM=false`.
+On the platform side:
+- `HOSTED_PAGE_BASE_URL=http://localhost:3000` on the verification service, so a proof request with a `redirectUri` returns `hostedPageUrl`.
+- This page's origin in `ENABLE_CORS_IP_LIST` on the api-gateway (`http://localhost:3000` is already in `.env.demo`).
+
+Then create a proof request with a `redirectUri` through the platform API and open the `hostedPageUrl` it returns. Add `?mode=mobile` or `?mode=web` to force a layout.
+
+**http://localhost:3000/preview** shows every screen with demo data, without a platform (`ENABLE_PREVIEW`, on by default outside production).
+
+### What the platform sends today
+
+| Field / status | Platform | Page |
+|---|---|---|
+| `returnHost`, `redirectUri`, `proofRequestURL`, `deepLinkURL`, `expiresAt` | #144 | used |
+| `pending`, `completed`, `failed`, `expired` | #144 | used |
+| `scanned` | #145 | used; optional |
+| `declined` | not yet (a decline is `failed`) | "You declined the request" screen is ready for it |
+| `expiresInSeconds` | not yet | the expired screen says "a limited time" instead of "10 minutes" |
 
 ## Configuration
 
@@ -60,8 +74,8 @@ Read at run time unless marked *build*, so one image serves every environment.
 | Variable | Notes |
 |---|---|
 | `APP_BASE_URL` | This page's public URL; https in production (`https://id.bhutanndi.com`, DL-012) |
-| `PLATFORM_API_URL` | Platform api-gateway base URL. Required in production, https. The platform must allow this page's origin (CORS). |
-| `MOCK_PLATFORM` | Built-in mock (dev). The server refuses to start with it on in production unless `MOCK_PLATFORM_ALLOW_IN_PRODUCTION=true`. |
+| `PLATFORM_API_URL` | Platform api-gateway base URL. Required (https in production). The platform must allow this page's origin (CORS). |
+| `ENABLE_PREVIEW` | Design gallery at `/preview` (default: on outside production) |
 | `ENABLE_LANGUAGE_TOGGLE` | Show the EN / Dzongkha switch (default `true`); when `false`, every page is in English |
 | `NEXT_PUBLIC_SUPPORT_EMAIL`, `NEXT_PUBLIC_SUPPORT_PHONE`, `NEXT_PUBLIC_PLAY_STORE_URL`, `NEXT_PUBLIC_APP_STORE_URL`, `NEXT_PUBLIC_VIDEO_GUIDE_URL` | *build*: support contacts, store links, video guide |
 

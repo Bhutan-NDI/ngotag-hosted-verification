@@ -21,14 +21,10 @@ export const config = {
    * Base URL of the platform api-gateway that serves the public hosted endpoints
    * (`/verification/hosted/:hostedId` and `/status`). The browser calls it directly.
    */
-  platformApiUrl: (
-    process.env.PLATFORM_API_URL ??
-    (bool("MOCK_PLATFORM", !isProd) ? `${process.env.APP_BASE_URL ?? "http://localhost:3000"}/mock-platform` : "")
-  ).replace(/\/+$/, ""),
+  platformApiUrl: (process.env.PLATFORM_API_URL ?? "").trim().replace(/\/+$/, ""),
 
-  /** Built-in mock of the platform endpoints for local development (never in production). */
-  mockPlatform: bool("MOCK_PLATFORM", !isProd),
-  allowMockInProduction: bool("MOCK_PLATFORM_ALLOW_IN_PRODUCTION", false),
+  /** Design QA gallery at /preview (demo data, every screen). Off in production unless ENABLE_PREVIEW=true. */
+  previewEnabled: bool("ENABLE_PREVIEW", !isProd),
 
   /** Show the EN / Dzongkha switch. When off, every page is in English. */
   languageToggle: bool("ENABLE_LANGUAGE_TOGGLE", true),
@@ -59,10 +55,5 @@ export function configErrors(): string[] {
     }
   }
 
-  if (c.isProd && c.mockPlatform && !c.allowMockInProduction) {
-    errors.push(
-      "MOCK_PLATFORM=true in production serves fake requests. Set MOCK_PLATFORM=false (or MOCK_PLATFORM_ALLOW_IN_PRODUCTION=true for a staging box).",
-    );
-  }
   return errors;
 }
