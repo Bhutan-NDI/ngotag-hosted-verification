@@ -14,7 +14,7 @@ export async function register() {
   }
   log.info("hosted page starting", {
     platformApiUrl: config.platformApiUrl,
-    mockPlatform: config.mockPlatform,
+    previewEnabled: config.previewEnabled,
     languageToggle: config.languageToggle,
   });
 }

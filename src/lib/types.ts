@@ -1,8 +1,9 @@
 /**
  * Status reported by the platform's `GET /verification/hosted/:hostedId/status` (HVP-SD §5.3).
  * `scanned` is optional: without it the page goes from `pending` straight to the outcome (DL-016).
- * `declined` is optional too (Figma 11): HVP-SD §5.3 has one `failed` value today; without
- * `declined` a decline shows as "We could not complete the check".
+ * ngotag-platform sends pending · scanned (#145) · completed · failed · expired (#144).
+ * `declined` is not sent yet: a decline arrives as `failed`. The page accepts it for when
+ * the platform adds it (Figma 11, "You declined the request").
  */
 export type HostedStatus = "pending" | "scanned" | "completed" | "declined" | "failed" | "expired";
 

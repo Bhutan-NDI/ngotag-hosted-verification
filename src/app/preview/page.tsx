@@ -4,8 +4,8 @@ import { config } from "@/lib/server/config";
 
 export const dynamic = "force-dynamic";
 
-/** Design QA gallery: every screen, phone and web. Only with the mock platform (dev). */
+/** Design QA gallery: every screen, phone and web, with demo data. Off in production unless ENABLE_PREVIEW=true. */
 export default function PreviewPage() {
-  if (!config.mockPlatform) notFound();
+  if (!config.previewEnabled) notFound();
   return <PreviewGallery />;
 }
