@@ -2,13 +2,15 @@
 // fixed security headers, no-store on the entry file and config.json, long cache on hashed
 // assets. For local checks and CI only — production is the CDN.
 //
-//   node scripts/serve-out.mjs [port]      CONFIG_JSON='{"platformApiUrl":"…"}' overrides config.json
+//   node scripts/serve-out.mjs [port]      config.json: CONFIG_JSON='{…}', else config.dev.json
+//   (the build carries no config.json; on the CDN each environment deploys its own)
 import { createServer } from "node:http";
 import { readFile } from "node:fs/promises";
 import { extname, join, normalize } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
 const OUT = fileURLToPath(new URL("../out/", import.meta.url));
+const DEV_CONFIG = fileURLToPath(new URL("../config.dev.json", import.meta.url));
 const TYPES = {
   ".html": "text/html; charset=utf-8", ".js": "text/javascript", ".css": "text/css", ".json": "application/json",
   ".png": "image/png", ".svg": "image/svg+xml", ".ico": "image/x-icon", ".woff2": "font/woff2", ".txt": "text/plain",
@@ -34,12 +36,9 @@ export function startServer(port = 0) {
       file = "v/_.html"; // the CDN rewrite
       cache = "no-store";
     } else if (pathname === "/config.json") {
-      cache = "no-store";
-      if (process.env.CONFIG_JSON) {
-        res.writeHead(200, { ...SECURITY_HEADERS, "Content-Type": TYPES[".json"], "Cache-Control": cache });
-        return res.end(process.env.CONFIG_JSON);
-      }
-      file = "config.json";
+      const body = process.env.CONFIG_JSON ?? (await readFile(DEV_CONFIG, "utf8"));
+      res.writeHead(200, { ...SECURITY_HEADERS, "Content-Type": TYPES[".json"], "Cache-Control": "no-store" });
+      return res.end(body);
     } else {
       file = normalize(decodeURIComponent(pathname)).replace(/^[/\\]+/, "");
       if (pathname.startsWith("/_next/static/")) cache = "public, max-age=31536000, immutable";

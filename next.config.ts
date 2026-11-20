@@ -12,8 +12,8 @@ const nextConfig: NextConfig = {
   outputFileTracingRoot: path.join(__dirname),
   // Export only at build time: in dev, /v/<any hostedId> must still resolve.
   output: isDev ? undefined : "export",
-  // /preview is page.dev.tsx: it exists in dev and is never part of the export.
-  pageExtensions: isDev ? ["dev.tsx", "tsx", "ts"] : ["tsx", "ts"],
+  // *.dev.ts(x) exist in dev only, never in the export: /preview and the dev /config.json.
+  pageExtensions: isDev ? ["dev.tsx", "dev.ts", "tsx", "ts"] : ["tsx", "ts"],
   images: { unoptimized: true },
   poweredByHeader: false,
   reactStrictMode: true,

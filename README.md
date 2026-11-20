@@ -55,7 +55,7 @@ npm install
 npm run dev          # http://localhost:3000 (use -- -p 3001 if 3000 is taken)
 ```
 
-Settings come from [public/config.json](public/config.json), the same file each environment deploys. Point `platformApiUrl` at a running platform api-gateway (ngotag-platform with the hosted-session and scanned changes):
+In `next dev`, `/config.json` is served from [config.dev.json](config.dev.json); `npm run serve` uses it too. The build carries no `config.json`: each environment deploys its own. Point `platformApiUrl` at a running platform api-gateway (ngotag-platform with the hosted-session and scanned changes):
 
 ```json
 { "platformApiUrl": "http://localhost:5000", "languageToggle": true }
@@ -106,7 +106,7 @@ To try the production build locally: `npm run build && npm run serve` serves `ou
 | Path | Rule |
 |---|---|
 | `/v/*` | Rewrite to `/v/_.html` (the entry file; the browser reads the hostedId from the URL). `Cache-Control: no-store`. |
-| `/config.json` | Per environment. `Cache-Control: no-store`. |
+| `/config.json` | Per environment, managed only by that environment's deploy, never by a release. `Cache-Control: no-store`. |
 | `/_next/static/*` | Content-hashed: `Cache-Control: public, max-age=31536000, immutable` |
 | everything else | 404 → `/404.html` |
 
@@ -123,6 +123,7 @@ To try the production build locally: `npm run build && npm run serve` serves `ou
 
 **Releases:**
 - Upload `_next/static/*` first, then switch the entry files (`v/_.html`, `404.html`) atomically. Roll back by switching back.
+- `config.json` is never part of a release upload. The build doesn't contain one (the CSP step fails the build if it does), so uploading the whole `out/` folder can't overwrite the environment's config.
 - Keep the previous release's `_next/static/*` for at least the longest request lifetime, so an open page never loses its scripts.
 
 **CI** ([.github/workflows/ci.yml](.github/workflows/ci.yml)): lint, type check, build, then `npm run check:csp`. That loads the built page in headless Chrome, served with the CDN rules, and fails on any CSP violation or if the page's JavaScript never runs.

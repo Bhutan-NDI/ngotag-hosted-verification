@@ -6,6 +6,7 @@
 // CSP_CONNECT_SRC (build env, space-separated): extra connect-src sources. Default "https:",
 // because one build serves every environment; narrow it per environment with the CDN header.
 import { createHash } from "node:crypto";
+import { existsSync } from "node:fs";
 import { readdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -37,6 +38,10 @@ export function policy(hashes) {
     "object-src 'none'",
   ].join("; ");
 }
+
+// The artefact must never carry a config.json: uploading out/ would overwrite the environment's
+// own one and point every page at the wrong platform (DL-018 item 2).
+if (existsSync(join(OUT, "config.json"))) throw new Error("out/config.json must not be in the build — keep config out of public/");
 
 let files = 0;
 for await (const file of htmlFiles(OUT)) {
