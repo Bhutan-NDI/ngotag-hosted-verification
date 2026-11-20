@@ -2,8 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
 import localFont from "next/font/local";
 import { I18nProvider } from "@/lib/i18n/client";
-import { requestLang } from "@/lib/i18n/server";
-import { config } from "@/lib/server/config";
+import { DEFAULT_LANG } from "@/lib/i18n/messages";
 import "./globals.css";
 
 const inter = Inter({ variable: "--font-inter", subsets: ["latin"] });
@@ -40,16 +39,14 @@ export const viewport: Viewport = {
   colorScheme: "light",
 };
 
-export default async function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
-  const lang = await requestLang();
+export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
     // Font variables must live on <html>: Tailwind defines --font-sans on :root,
     // and it can only resolve var(--font-inter)/var(--font-tibetan) there.
-    <html lang={lang} className={`${inter.variable} ${tibetan.variable}`}>
+    // lang is set again in the browser once the language is known (I18nProvider).
+    <html lang={DEFAULT_LANG} className={`${inter.variable} ${tibetan.variable}`}>
       <body className="antialiased">
-        <I18nProvider initialLang={lang} toggleEnabled={config.languageToggle}>
-          {children}
-        </I18nProvider>
+        <I18nProvider>{children}</I18nProvider>
       </body>
     </html>
   );

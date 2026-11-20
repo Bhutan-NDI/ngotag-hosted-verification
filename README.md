@@ -3,21 +3,21 @@
 One NDI-owned page for the QR code and the "Open Bhutan NDI" button, reused by every relying party (HVP-SD).
 A relying party's backend creates a proof request with a `redirectUri`. The platform returns `hostedPageUrl` (`/v/<hostedId>`). The browser comes here, the user approves in the wallet, and the browser goes back to the relying party with a single-use `response_code`.
 
-Next.js 15 (App Router), TypeScript, Tailwind CSS v4. Light theme only. English and Dzongkha.
+Next.js 15 (App Router, static export), TypeScript, Tailwind CSS v4. Light theme only. English and Dzongkha.
 
 ## How it works
 
-The page keeps no state and holds no secrets. It reads only the opaque `hostedId` from its URL (DL-003) and talks to two **public, read-only platform endpoints** straight from the browser (HVP-SD §5.3):
+The page is static files on a CDN; it keeps no state and holds no secrets. It reads only the opaque `hostedId` from its URL (DL-003) and talks to two **public, read-only platform endpoints** straight from the browser (HVP-SD §5.3):
 
 | Call | Used for |
 |---|---|
-| `GET {PLATFORM_API_URL}/verification/hosted/:hostedId` | `returnHost`, `redirectUri` (without the code), `proofRequestURL`, `deepLinkURL` (with `returnUrl`), `expiresAt`, `serverTime` |
-| `GET {PLATFORM_API_URL}/verification/hosted/:hostedId/status` | `pending` · `scanned` · `completed` · `declined` (optional) · `failed` · `expired`, plus `returnUrl` on `completed`, `declined` or `failed` |
+| `GET {platformApiUrl}/verification/hosted/:hostedId` | `returnHost`, `redirectUri` (without the code), `proofRequestURL`, `deepLinkURL` (with `returnUrl`), `expiresAt`, `serverTime` |
+| `GET {platformApiUrl}/verification/hosted/:hostedId/status` | `pending` · `scanned` · `completed` · `declined` (optional) · `failed` · `expired`, plus `returnUrl` on `completed`, `declined` or `failed` |
 
 Behaviour (decision log wins over the solution design):
 
 - **QR code** encodes only `proofRequestURL`; only the button uses `deepLinkURL` (DL-004).
-- **Both paths, always:** QR code first on desktop, "Open Bhutan NDI" first on phones; each offers the other (§5.6). Phone or desktop is chosen from the user agent; `?mode=web|mobile` overrides it.
+- **Both paths, always:** QR code first on desktop, "Open Bhutan NDI" first on phones; each offers the other (§5.6). Phone or desktop is detected in the browser; `?mode=web|mobile` overrides it.
 - **Polling** (DL-008): every 2 s for the first minute, then every 4 s. It pauses while the tab is hidden and checks at once when it is visible again, backs off on errors, and stops on a final state or at the deadline.
 - **Completed:** in QR mode, redirect to `returnUrl` at once (§5.6). This is the only automatic navigation. **After the deep link is tapped**, the wallet opens `returnUrl` itself (E7), so the page never redirects; it shows "All done here" with a manual "Return to &lt;host&gt;" in case the wallet's return did not arrive (DL-007).
 - **Scanned** (optional, DL-016): hide the QR code and ask the user to approve in the wallet. If the request expires while scanned, show "You did not approve in time".
@@ -36,37 +36,40 @@ Behaviour (decision log wins over the solution design):
   Relying parties should treat an unknown `error` like `failed`.
 - **Server time** (DL-021): when the platform sends `serverTime`, the page keeps `offset = serverTime − device time` and judges the deadline and polling stop on it. It stops offering `returnUrl` 5 s before `returnUrlExpiresAt` and falls back to the reason link. Without these fields it uses the device clock and no code expiry.
 - **Branding:** NDI branding and "You'll return to &lt;host&gt;" only, with no organisation name or logo (DL-009).
-- **Security:** cannot be framed (`frame-ancestors 'none'`, DL-002). Nonce-based CSP whose `connect-src` allows only this origin and the platform origin. `Referrer-Policy: no-referrer`.
+- **Security:** cannot be framed (`frame-ancestors 'none'` and `X-Frame-Options` on the CDN, DL-002). The CSP is a `<meta>` tag with build-time script hashes, plus a CDN header that narrows `connect-src` to the platform. `Referrer-Policy: no-referrer`.
 
 Code map:
+- [src/components/hosted/HostedEntry.tsx](src/components/hosted/HostedEntry.tsx): static entry; reads the hostedId, device and config.json in the browser
+- [src/lib/runtimeConfig.ts](src/lib/runtimeConfig.ts): loads config.json
 - [src/lib/platform.ts](src/lib/platform.ts): platform client (validates responses; only http(s) URLs are accepted)
 - [src/lib/flow.ts](src/lib/flow.ts): state machine for every screen
 - [src/components/hosted/HostedFlow.tsx](src/components/hosted/HostedFlow.tsx): loading, polling, deadline, deep link, redirect
 - [src/components/hosted/views.tsx](src/components/hosted/views.tsx): screens
 - [src/lib/i18n/messages.ts](src/lib/i18n/messages.ts): English and Dzongkha copy
+- [scripts/csp.mjs](scripts/csp.mjs), [scripts/serve-out.mjs](scripts/serve-out.mjs), [scripts/check-csp.mjs](scripts/check-csp.mjs): CSP meta tag, CDN-rules server, CI check
 
 ## Local development
 
 ```bash
-cp .env.example .env.local
 npm install
-npm run dev
+npm run dev          # http://localhost:3000 (use -- -p 3001 if 3000 is taken)
 ```
 
-Point the page at a running platform api-gateway (ngotag-platform with PRs #144 hosted session and #145 scanned):
+Settings come from [public/config.json](public/config.json), the same file each environment deploys. Point `platformApiUrl` at a running platform api-gateway (ngotag-platform with the hosted-session and scanned changes):
 
-```bash
-# .env.local
-PLATFORM_API_URL=http://localhost:5000
+```json
+{ "platformApiUrl": "http://localhost:5000", "languageToggle": true }
 ```
 
 On the platform side:
 - `HOSTED_PAGE_BASE_URL=http://localhost:3000` on the verification service, so a proof request with a `redirectUri` returns `hostedPageUrl`.
-- This page's origin in `ENABLE_CORS_IP_LIST` on the api-gateway (`http://localhost:3000` is already in `.env.demo`).
+- This page's origin in `ENABLE_CORS_IP_LIST` on the api-gateway (`http://localhost:3000` and `:3001` are already in `.env.demo`).
 
 Then create a proof request with a `redirectUri` through the platform API and open the `hostedPageUrl` it returns. Add `?mode=mobile` or `?mode=web` to force a layout.
 
-**http://localhost:3000/preview** shows every screen with demo data, without a platform (`ENABLE_PREVIEW`, on by default outside production).
+**http://localhost:3000/preview** shows every screen with demo data, without a platform. It exists only in `next dev` (`page.dev.tsx`) and is never part of the export.
+
+To try the production build locally: `npm run build && npm run serve` serves `out/` the way the CDN does. Build with `CSP_CONNECT_SRC=http://localhost:5000` to let it call a local http platform.
 
 ### What the platform sends today
 
@@ -80,26 +83,51 @@ Then create a proof request with a `redirectUri` through the platform API and op
 
 ## Configuration
 
-Read at run time unless marked *build*, so one image serves every environment.
+**Run time:** `config.json`, deployed next to the build per environment, served with `Cache-Control: no-store`. One build serves every environment.
+
+| Key | Notes |
+|---|---|
+| `platformApiUrl` | Platform api-gateway base URL (https in production). The platform must allow this page's origin (CORS). |
+| `languageToggle` | Show the EN / Dzongkha switch (default `true`); when `false`, every page is in English |
+
+**Build time:**
 
 | Variable | Notes |
 |---|---|
-| `APP_BASE_URL` | This page's public URL; https in production (`https://id.bhutanndi.com`, DL-012) |
-| `PLATFORM_API_URL` | Platform api-gateway base URL. Required (https in production). The platform must allow this page's origin (CORS). |
-| `ENABLE_PREVIEW` | Design gallery at `/preview` (default: on outside production) |
-| `ENABLE_LANGUAGE_TOGGLE` | Show the EN / Dzongkha switch (default `true`); when `false`, every page is in English |
-| `NEXT_PUBLIC_SUPPORT_EMAIL`, `NEXT_PUBLIC_SUPPORT_PHONE`, `NEXT_PUBLIC_PLAY_STORE_URL`, `NEXT_PUBLIC_APP_STORE_URL`, `NEXT_PUBLIC_VIDEO_GUIDE_URL` | *build*: support contacts, store links, video guide |
+| `NEXT_PUBLIC_SUPPORT_EMAIL`, `NEXT_PUBLIC_SUPPORT_PHONE`, `NEXT_PUBLIC_PLAY_STORE_URL`, `NEXT_PUBLIC_APP_STORE_URL`, `NEXT_PUBLIC_VIDEO_GUIDE_URL` | Support contacts, store links, video guide |
+| `CSP_CONNECT_SRC` | Extra `connect-src` sources in the CSP meta tag (default `https:`, since one build serves every environment). Narrow it per environment with the CDN header below. |
 
-The server checks its configuration at start-up and refuses to start in production if it is invalid.
+## Deploy (static export on a CDN, DL-018)
 
-## Deploy
+`npm run build` produces `out/`: a static export with no server code. [scripts/csp.mjs](scripts/csp.mjs) then writes a `<meta http-equiv="Content-Security-Policy">` tag into each HTML file, with sha256 hashes of that build's inline scripts. The hashes change with every build. In the HTML, the page and its policy ship together, so a release never has new HTML meeting an old CDN header.
 
-```bash
-docker build -t ndi-hosted-page --build-arg NEXT_PUBLIC_SUPPORT_EMAIL=… .
-docker run -p 3000:3000 -e APP_BASE_URL=https://id.bhutanndi.com -e PLATFORM_API_URL=https://… ndi-hosted-page
-```
+**CDN rules:**
 
-The Docker image is a standalone Node server that runs as a non-root user. Its health check is `GET /api/health`.
+| Path | Rule |
+|---|---|
+| `/v/*` | Rewrite to `/v/_.html` (the entry file; the browser reads the hostedId from the URL). `Cache-Control: no-store`. |
+| `/config.json` | Per environment. `Cache-Control: no-store`. |
+| `/_next/static/*` | Content-hashed: `Cache-Control: public, max-age=31536000, immutable` |
+| everything else | 404 → `/404.html` |
+
+**Response headers on every path** (these don't change between releases, so the header is safe):
+- `Content-Security-Policy: frame-ancestors 'none'; connect-src 'self' <platform origin>`. `frame-ancestors` can't be set in a meta tag (DL-002). Both policies apply, so this header narrows the meta tag's `connect-src` to this environment's platform.
+- `X-Frame-Options: DENY`
+- `Strict-Transport-Security: max-age=63072000; includeSubDomains; preload`
+- `Referrer-Policy: no-referrer`
+- `X-Content-Type-Options: nosniff`
+- `Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=(), usb=()`
+- `Cross-Origin-Opener-Policy: same-origin`
+
+[scripts/serve-out.mjs](scripts/serve-out.mjs) implements exactly these rules, as the reference for the CDN configuration.
+
+**Releases:**
+- Upload `_next/static/*` first, then switch the entry files (`v/_.html`, `404.html`) atomically. Roll back by switching back.
+- Keep the previous release's `_next/static/*` for at least the longest request lifetime, so an open page never loses its scripts.
+
+**CI** ([.github/workflows/ci.yml](.github/workflows/ci.yml)): lint, type check, build, then `npm run check:csp`. That loads the built page in headless Chrome, served with the CDN rules, and fails on any CSP violation or if the page's JavaScript never runs.
+
+**Monitoring** (AC 10): a synthetic check every minute that loads `/v/<test id>` and calls the platform's status endpoint, with alerts. It replaces the old `/api/health`.
 
 ## Assets
 
