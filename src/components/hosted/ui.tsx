@@ -205,7 +205,7 @@ export function QrToggle({
       disabled={disabled}
       aria-expanded={expanded}
       className={cx(
-        "inline-flex items-center gap-1.5 rounded-lg px-4 py-3 text-[15px] font-semibold",
+        "relative left-2 inline-flex items-center gap-1.5 rounded-lg px-4 py-3 text-[15px] font-semibold",
         focusRing,
         disabled ? "text-disabled" : "text-mint hover:underline hover:underline-offset-4",
       )}
