@@ -1,0 +1,33 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [develop, main]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run lint
+      - run: npx tsc --noEmit
+      # Static export (out/) + the CSP <meta> tag with this build's script hashes.
+      - run: npm run build
+        env:
+          NEXT_TELEMETRY_DISABLED: 1
+      # Loads the built page in headless Chrome, served with the CDN rules; fails on any CSP
+      # violation or if the page's JavaScript never runs (DL-018).
+      - run: npm run check:csp
+        env:
+          CHROME_PATH: /usr/bin/google-chrome
+      - uses: actions/upload-artifact@v4
+        with:
+          name: out
+          path: out/
+          retention-days: 14
