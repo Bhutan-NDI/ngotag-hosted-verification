@@ -64,8 +64,10 @@ function expiredView(state: FlowState): View {
 export function flowReducer(state: FlowState, action: FlowAction): FlowState {
   // Another tab is returning with the code. A tab still waiting in "returning" (in the
   // background, not yet navigated) must stand down too, or it would reuse the code later.
+  // Drop returnUrl too: its response_code is being used by the other tab, so no Return button.
   if (action.type === "returned-elsewhere" && state.view === "returning") {
-    return { ...state, view: "returned", resumeView: undefined, settled: true };
+    const session = state.session && { ...state.session, returnUrl: undefined };
+    return { ...state, session, view: "returned", resumeView: undefined, settled: true };
   }
   // Final answers never change again — e.g. a late status can't undo "returning".
   if (state.settled) return state;
