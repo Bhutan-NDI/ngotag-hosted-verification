@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useReducer, useRef } from "react";
-import { flowReducer, initialFlow } from "@/lib/flow";
+import { CODE_MARGIN_MS, flowReducer, initialFlow } from "@/lib/flow";
 import { fetchHostedRequest, fetchHostedStatus, NotFoundError, RateLimitedError } from "@/lib/platform";
 import type { DeviceMode } from "@/lib/types";
 import { Frame, StateView } from "./views";
@@ -37,6 +37,18 @@ export function HostedFlow({ hostedId, apiBaseUrl, mode }: Props) {
   /** This tab has announced it is returning: it no longer stands down for another tab. */
   const committedRef = useRef(false);
 
+  /**
+   * Server time (DL-021): offset = serverTime − device time, updated from every answer that
+   * carries `serverTime`. The deadline, the polling stop and the code lifetime are judged on
+   * server time, so a phone whose clock is off neither expires early nor late. Without the
+   * field (older platform) the offset stays 0: the device clock.
+   */
+  const offsetRef = useRef(0);
+  const now = useCallback(() => Date.now() + offsetRef.current, []);
+  const syncClock = useCallback((serverTime?: number) => {
+    if (serverTime !== undefined) offsetRef.current = serverTime - Date.now();
+  }, []);
+
   /* -- 1. Load the request once (retry with back-off on network errors) ---- */
   useEffect(() => {
     if (loaded) return;
@@ -47,8 +59,9 @@ export function HostedFlow({ hostedId, apiBaseUrl, mode }: Props) {
     const load = async () => {
       try {
         const request = await fetchHostedRequest(apiBaseUrl, hostedId, ctrl.signal);
+        syncClock(request.serverTime);
         dispatch({ type: "connection-restored" });
-        dispatch({ type: "loaded", hostedId, request });
+        dispatch({ type: "loaded", hostedId, request, now: now() });
       } catch (err) {
         if (ctrl.signal.aborted) return;
         if (err instanceof NotFoundError) return dispatch({ type: "not-found" });
@@ -64,7 +77,7 @@ export function HostedFlow({ hostedId, apiBaseUrl, mode }: Props) {
       ctrl.abort();
       clearTimeout(timer);
     };
-  }, [apiBaseUrl, hostedId, loaded]);
+  }, [apiBaseUrl, hostedId, loaded, now, syncClock]);
 
   /* -- 2. Poll status (DL-008): fast then slow, pause when hidden, back off -- */
   useEffect(() => {
@@ -79,20 +92,22 @@ export function HostedFlow({ hostedId, apiBaseUrl, mode }: Props) {
     const schedule = () => {
       clearTimeout(timer);
       if (ctrl.signal.aborted || document.visibilityState === "hidden") return; // paused
-      if (Date.now() >= stopAt) return; // the platform can no longer change the answer
+      if (now() >= stopAt) return; // the platform can no longer change the answer
       const base = Date.now() - startedAt < FAST_PHASE_MS ? FAST_POLL_MS : SLOW_POLL_MS;
       const delay = errors ? Math.min(base * 2 ** errors, MAX_BACKOFF_MS) : base;
       timer = setTimeout(poll, delay);
     };
 
-    const poll = async () => {
-      if (inFlight || ctrl.signal.aborted || Date.now() >= stopAt) return;
+    // stopAt ends scheduled polls only; a tab coming back always polls once (hidden while in the wallet).
+    const poll = async (force = false) => {
+      if (inFlight || ctrl.signal.aborted || (!force && now() >= stopAt)) return;
       inFlight = true;
       try {
         const response = await fetchHostedStatus(apiBaseUrl, hostedId, ctrl.signal);
+        syncClock(response.serverTime);
         if (errors) dispatch({ type: "connection-restored" });
         errors = 0;
-        dispatch({ type: "status", response });
+        dispatch({ type: "status", response, now: now() });
       } catch (err) {
         if (ctrl.signal.aborted) return;
         // The session is gone — used by the service, or lapsed in the background (Figma 17).
@@ -115,7 +130,7 @@ export function HostedFlow({ hostedId, apiBaseUrl, mode }: Props) {
     const onVisible = () => {
       if (document.visibilityState === "visible") {
         clearTimeout(timer);
-        poll();
+        poll(true);
       }
     };
     document.addEventListener("visibilitychange", onVisible);
@@ -125,24 +140,35 @@ export function HostedFlow({ hostedId, apiBaseUrl, mode }: Props) {
       clearTimeout(timer);
       document.removeEventListener("visibilitychange", onVisible);
     };
-  }, [apiBaseUrl, hostedId, loaded, settled, expiresAt]);
+  }, [apiBaseUrl, hostedId, loaded, settled, expiresAt, now, syncClock]);
 
   /* -- 3. The shared deadline (DL-017): expire even if nothing was scanned -----
    * Only the screen changes; polling goes on through the platform's grace period (see 2). */
   useEffect(() => {
     if (!expiresAt || settled) return;
     // setTimeout overflows above ~24.8 days; no request lives that long.
-    const delay = Math.min(Math.max(0, expiresAt - Date.now()), 2 ** 31 - 1);
+    const delay = Math.min(Math.max(0, expiresAt - now()), 2 ** 31 - 1);
     const t = setTimeout(() => dispatch({ type: "deadline" }), delay);
     return () => clearTimeout(t);
-  }, [expiresAt, settled]);
+  }, [expiresAt, settled, now]);
+
+  /* -- 3b. Code lifetime (DL-021): stop offering returnUrl ~5 s before it lapses --
+   * Every button then falls back to its reason link; a tab still in "returning" stands down. */
+  const codeUrl = session?.returnUrl;
+  const codeExpiresAt = session?.returnUrlExpiresAt;
+  useEffect(() => {
+    if (!codeUrl || codeExpiresAt === undefined) return;
+    const delay = Math.min(Math.max(0, codeExpiresAt - CODE_MARGIN_MS - now()), 2 ** 31 - 1);
+    const t = setTimeout(() => dispatch({ type: "code-expired" }), delay);
+    return () => clearTimeout(t);
+  }, [codeUrl, codeExpiresAt, now]);
 
   /* -- 4. Wallet deep link: "still opening", and leaving for the app -------- */
   useEffect(() => {
     if (view !== "opening") return;
-    const t = setTimeout(() => dispatch({ type: "open-timeout" }), OPEN_TIMEOUT_MS);
+    const t = setTimeout(() => dispatch({ type: "open-timeout", web: mode === "web" }), OPEN_TIMEOUT_MS);
     return () => clearTimeout(t);
-  }, [view]);
+  }, [view, mode]);
 
   useEffect(() => {
     if (view !== "opening" && view !== "still-opening") return;
@@ -181,8 +207,9 @@ export function HostedFlow({ hostedId, apiBaseUrl, mode }: Props) {
     };
   }, [hostedId]);
 
-  /* -- 6. Completed: go back with the response_code at once -------------------
-   * On a laptop and after the deep link alike: the wallet was given no returnUrl, so it can't. */
+  /* -- 6. Completed in QR mode: go back with the response_code at once ---------
+   * The only automatic navigation (DL-019(1)). After the deep link the wallet opens returnUrl
+   * itself (DL-007), so the flow never enters "returning" there. */
   const returnUrl = session?.returnUrl;
   const navigated = useRef(false);
   useEffect(() => {

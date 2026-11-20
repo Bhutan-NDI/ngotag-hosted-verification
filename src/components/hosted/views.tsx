@@ -1,11 +1,11 @@
 "use client";
 
 import { QRCodeSVG } from "qrcode.react";
-import { useEffect, useState, type ReactNode } from "react";
+import type { ReactNode } from "react";
 import type { View } from "@/lib/flow";
 import { Fmt, useI18n } from "@/lib/i18n/client";
-import { startAgainUrl } from "@/lib/platform";
-import type { DeviceMode, PublicSession } from "@/lib/types";
+import { reasonUrl, returnHref } from "@/lib/platform";
+import type { DeviceMode, PublicSession, ReturnReason } from "@/lib/types";
 import {
   Asset,
   BrandName,
@@ -34,8 +34,6 @@ export interface StateViewProps extends ViewActions {
   view: View;
   mode: DeviceMode;
   session?: PublicSession;
-  /** Design gallery: never navigate on our own (no 20 s auto-return). */
-  preview?: boolean;
 }
 
 /* ------------------------------------------------------------------------ */
@@ -186,6 +184,8 @@ function MobileConnect({ view, session, onOpenWallet, onShowQr, onHideQr }: Stat
         <QrToggle expanded={false} onClick={onShowQr} />
       )}
 
+      <CancelLink session={session} />
+
       <Divider className={qrOpen ? "mt-2" : undefined} />
       <MobileFooter />
     </ConnectCard>
@@ -212,8 +212,10 @@ function WebScan({ view, session, onOpenWallet }: StateViewProps) {
             onClick={onOpenWallet}
             className="rounded text-sm font-medium text-muted underline-offset-4 hover:text-ink hover:underline focus-visible:outline-2 focus-visible:outline-primary"
           >
+            {t.openOnThisPhone}
           </button>
         )}
+        <CancelLink session={session} />
       </div>
       <WebFooter />
     </ConnectCard>
@@ -257,79 +259,32 @@ export function Status({
 }
 
 /**
- * "Return to <host>": only with the coded returnUrl. A bare redirectUri would reach the relying
- * party with neither a response_code nor an error, a return it has no way to handle (DL-013).
+ * Every way back is a button the citizen presses (DL-019): the coded returnUrl while it is still
+ * valid, otherwise redirectUri with `error=<reason>`. Never the bare redirectUri (DL-013).
  */
-function ReturnButton({ session }: { session?: PublicSession }) {
+function BackButton({ session, reason, label }: { session?: PublicSession; reason: ReturnReason; label?: string }) {
   const { t } = useI18n();
-  const href = session?.returnUrl;
-  if (!href || !session) return null;
+  if (!session) return null;
   return (
-    <PrimaryLink href={href}>
-      <Fmt text={t.returnTo} values={{ host: session.returnHost }} />
+    <PrimaryLink href={returnHref(session, reason)}>
+      <Fmt text={label ?? t.returnTo} values={{ host: session.returnHost }} />
     </PrimaryLink>
   );
 }
 
-/** "Start again at <host>": redirectUri with error=expired (DL-013). */
-function StartAgainButton({ session }: { session?: PublicSession }) {
+/** "Cancel and return to <host>" on the pending screens: `error=cancelled` (DL-019(2)). */
+function CancelLink({ session }: { session?: PublicSession }) {
   const { t } = useI18n();
-  if (!session?.redirectUri) return null;
+  if (!session) return null;
   return (
-    <PrimaryLink href={startAgainUrl(session.redirectUri)}>
-      <Fmt text={t.startAgainAt} values={{ host: session.returnHost }} />
-    </PrimaryLink>
+    <a
+      href={reasonUrl(session.redirectUri, "cancelled")}
+      className="rounded text-[13px] font-medium text-muted underline underline-offset-2 hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+    >
+      <Fmt text={t.cancelReturn} values={{ host: session.returnHost }} />
+    </a>
   );
 }
-
-const AUTO_RETURN_SECONDS = 20;
-
-/**
- * Figma 13: "Taking you back to <host> in 20 seconds" + "Stay on this page"
- * (WCAG 2.2.1: at least 20 s and a way to stop it).
- * NOTE: departs from DL-013 ("the page does not redirect on its own") — the
- * decision log needs a superseding entry. To keep DL-013's concern for a user who
- * stepped away, the countdown only runs while the tab is visible.
- */
-function AutoReturn({ session, paused = false }: { session?: PublicSession; paused?: boolean }) {
-  const { t } = useI18n();
-  const [seconds, setSeconds] = useState(AUTO_RETURN_SECONDS);
-  const [stayed, setStayed] = useState(false);
-  const href = session?.redirectUri ? startAgainUrl(session.redirectUri) : undefined;
-
-  useEffect(() => {
-    if (!href || stayed || paused) return;
-    const tick = setInterval(() => {
-      if (document.visibilityState !== "visible") return; // paused while hidden
-      setSeconds((s) => Math.max(0, s - 1));
-    }, 1000);
-    return () => clearInterval(tick);
-  }, [href, stayed, paused]);
-
-  useEffect(() => {
-    if (href && !stayed && seconds === 0) window.location.assign(href);
-  }, [href, stayed, seconds]);
-
-  if (!href || stayed) return null;
-  return (
-    <>
-      <p className="text-[13px] text-muted">
-        <Fmt text={t.autoReturn} values={{ host: session!.returnHost, seconds: <span className="tabular-nums">{seconds}</span> }} />
-      </p>
-      <button
-        type="button"
-        onClick={() => setStayed(true)}
-        className="rounded text-[13px] font-semibold text-primary underline underline-offset-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
-      >
-        {t.stayHere}
-      </button>
-    </>
-  );
-}
-
-/** The request's lifetime in whole minutes, when the platform sends it. */
-const lifetimeMinutes = (s?: PublicSession) =>
-  s?.validForSeconds ? String(Math.max(1, Math.round(s.validForSeconds / 60))) : undefined;
 
 /* ------------------------------------------------------------------------ */
 /* Router                                                                    */
@@ -337,9 +292,8 @@ const lifetimeMinutes = (s?: PublicSession) =>
 
 export function StateView(props: StateViewProps) {
   const { t } = useI18n();
-  const { view, mode, session, preview } = props;
+  const { view, mode, session } = props;
   const host = session?.returnHost ?? "";
-  const minutes = lifetimeMinutes(session);
 
   switch (view) {
     case "ready":
@@ -355,8 +309,7 @@ export function StateView(props: StateViewProps) {
     case "loading":
       return <Status mode={mode} icon={<Spinner />} title={t.loadingTitle} body={t.loadingBody} />;
 
-    // Deep link tapped: the user approves in the wallet and comes back to this tab, which then
-    // returns them itself once the proof completes (the wallet has no returnUrl to open).
+    // Deep link tapped: the wallet returns the citizen itself (DL-007, E7); the page only waits.
     case "waiting":
       return (
         <Status
@@ -365,12 +318,12 @@ export function StateView(props: StateViewProps) {
           title={t.waitingTitle}
           body={<Fmt text={t.waitingBody} values={{ host }} />}
         >
-          <ReturnButton session={session} />
+          <CancelLink session={session} />
         </Status>
       );
 
-    // Done, with nothing left to hand over here: another tab returned with the code, the code was
-    // already used, or the request vanished after the deep link (Figma 7). Return only with a code.
+    // Done here (Figma 7): completed after the deep link (manual Return in case the wallet's return
+    // did not arrive, DL-007), another tab returned, or no valid code is left (error=unavailable).
     case "returned":
       return (
         <Status
@@ -379,7 +332,7 @@ export function StateView(props: StateViewProps) {
           title={t.returnedTitle}
           body={<Fmt text={t.returnedBody} values={{ host }} />}
         >
-          <ReturnButton session={session} />
+          <BackButton session={session} reason="unavailable" />
         </Status>
       );
 
@@ -402,7 +355,7 @@ export function StateView(props: StateViewProps) {
           title={t.declinedTitle}
           body={<Fmt text={t.declinedBody} values={{ host }} />}
         >
-          <ReturnButton session={session} />
+          <BackButton session={session} reason="declined" />
         </Status>
       );
 
@@ -414,7 +367,7 @@ export function StateView(props: StateViewProps) {
           title={t.failedTitle}
           body={<Fmt text={t.failedBody} values={{ host }} />}
         >
-          <ReturnButton session={session} />
+          <BackButton session={session} reason="failed" />
         </Status>
       );
 
@@ -424,10 +377,10 @@ export function StateView(props: StateViewProps) {
           mode={mode}
           icon={<StatusIcon name="hourglass" />}
           title={t.expiredTitle}
-          body={<Fmt text={minutes ? t.expiredBodyMinutes : t.expiredBody} values={{ host, minutes }} />}
+          body={<Fmt text={t.expiredBody} values={{ host }} />}
         >
-          <StartAgainButton session={session} />
-          <AutoReturn session={session} paused={preview} />
+          {/* A button only: the page never sends the citizen back on its own (DL-013). */}
+          <BackButton session={session} reason="expired" label={t.startAgainAt} />
         </Status>
       );
 
@@ -438,9 +391,9 @@ export function StateView(props: StateViewProps) {
           mode={mode}
           icon={<StatusIcon name="clock" />}
           title={t.timedOutTitle}
-          body={<Fmt text={minutes ? t.timedOutBodyMinutes : t.timedOutBody} values={{ host, minutes }} />}
+          body={<Fmt text={t.timedOutBody} values={{ host }} />}
         >
-          <StartAgainButton session={session} />
+          <BackButton session={session} reason="expired" label={t.startAgainAt} />
         </Status>
       );
 
@@ -457,8 +410,8 @@ export function StateView(props: StateViewProps) {
           title={t.notFoundTitle}
           body={<Fmt text={t.goneBody} values={{ host }} />}
         >
-          {/* No code to hand over: back to the relying party the one way it handles (DL-013). */}
-          <StartAgainButton session={session} />
+          {/* Lost mid-flow: no code to hand over, so the reason is `unavailable` (DL-019). */}
+          <BackButton session={session} reason="unavailable" />
         </Status>
       );
 
