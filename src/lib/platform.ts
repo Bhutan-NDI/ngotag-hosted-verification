@@ -33,20 +33,34 @@ function endpoint(apiBaseUrl: string, hostedId: string, suffix = "") {
   return `${apiBaseUrl.replace(/\/+$/, "")}/verification/hosted/${encodeURIComponent(hostedId)}${suffix}`;
 }
 
+/**
+ * Aborts on the caller's signal or after REQUEST_TIMEOUT_MS. Built by hand: AbortSignal.any
+ * (Safari 17.4+) and AbortSignal.timeout (Safari 16+) are missing on older iPhones, and
+ * Next.js does not polyfill them — the throw would leave the page on "Reconnecting" forever.
+ */
 async function getJson(url: string, signal?: AbortSignal): Promise<unknown> {
-  const timeout = AbortSignal.timeout(REQUEST_TIMEOUT_MS);
-  const res = await fetch(url, {
-    method: "GET",
-    headers: { Accept: "application/json" },
-    cache: "no-store",
-    credentials: "omit",
-    referrerPolicy: "no-referrer",
-    signal: signal ? AbortSignal.any([signal, timeout]) : timeout,
-  });
-  if (res.status === 404 || res.status === 410) throw new NotFoundError();
-  if (res.status === 429) throw new RateLimitedError();
-  if (!res.ok) throw new Error(`platform responded ${res.status}`);
-  return res.json();
+  const ctrl = new AbortController();
+  const abort = () => ctrl.abort();
+  const timer = setTimeout(abort, REQUEST_TIMEOUT_MS);
+  if (signal?.aborted) abort();
+  else signal?.addEventListener("abort", abort, { once: true });
+  try {
+    const res = await fetch(url, {
+      method: "GET",
+      headers: { Accept: "application/json" },
+      cache: "no-store",
+      credentials: "omit",
+      referrerPolicy: "no-referrer",
+      signal: ctrl.signal,
+    });
+    if (res.status === 404 || res.status === 410) throw new NotFoundError();
+    if (res.status === 429) throw new RateLimitedError();
+    if (!res.ok) throw new Error(`platform responded ${res.status}`);
+    return await res.json();
+  } finally {
+    clearTimeout(timer);
+    signal?.removeEventListener("abort", abort);
+  }
 }
 
 /** Some platforms wrap payloads as { data: … }; accept both. */

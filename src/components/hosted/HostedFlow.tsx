@@ -34,6 +34,8 @@ export function HostedFlow({ hostedId, apiBaseUrl, mode }: Props) {
   const loaded = Boolean(session);
   const expiresAt = session?.expiresAt;
   const channelRef = useRef<BroadcastChannel | null>(null);
+  /** This tab has announced it is returning: it no longer stands down for another tab. */
+  const committedRef = useRef(false);
 
   /* -- 1. Load the request once (retry with back-off on network errors) ---- */
   useEffect(() => {
@@ -169,7 +171,9 @@ export function HostedFlow({ hostedId, apiBaseUrl, mode }: Props) {
     const ch = new BroadcastChannel(`ndi-hosted-${hostedId}`);
     channelRef.current = ch;
     ch.onmessage = (e) => {
-      if (e.data === "returning") dispatch({ type: "returned-elsewhere" });
+      // Once this tab has committed, ignore the other's message: two visible windows would
+      // otherwise cancel each other and neither would return.
+      if (e.data === "returning" && !committedRef.current) dispatch({ type: "returned-elsewhere" });
     };
     return () => {
       ch.close();
@@ -185,6 +189,7 @@ export function HostedFlow({ hostedId, apiBaseUrl, mode }: Props) {
     if (view !== "returning" || !returnUrl || navigated.current) return;
     let t: ReturnType<typeof setTimeout> | undefined;
     const go = () => {
+      committedRef.current = true;
       channelRef.current?.postMessage("returning");
       t = setTimeout(() => {
         navigated.current = true;
