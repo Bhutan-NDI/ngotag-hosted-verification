@@ -36,7 +36,6 @@ function demoSession(view: View): PublicSession | undefined {
     proofRequestURL: "https://bhutanndi.example/oob?preview=1",
     deepLinkURL: "https://bhutanndi.app.link/?preview=1",
     expiresAt: 0, // not rendered
-    validForSeconds: 600,
     returnUrl: ["returned", "returning", "declined", "failed"].includes(view)
       ? "https://service.gov.bt/callback?response_code=preview"
       : undefined,
@@ -52,7 +51,7 @@ export function PreviewGallery() {
       <header className="mx-auto mb-8 flex max-w-[1600px] flex-wrap items-center justify-between gap-4">
         <div>
           <h1 className="text-xl font-semibold text-ink">Hosted page — all screens</h1>
-          <p className="text-sm text-muted">Design QA (ENABLE_PREVIEW). Demo data; links are live, nothing redirects on its own.</p>
+          <p className="text-sm text-muted">Design QA (ENABLE_PREVIEW). Demo data; links are live.</p>
         </div>
         <div className="flex rounded-full border border-line bg-surface p-1">
           {(["mobile", "web"] as const).map((m) => (
@@ -82,7 +81,7 @@ export function PreviewGallery() {
                 mode === "mobile" ? "w-[390px] max-w-full" : "w-[706px] max-w-full",
               )}
             >
-              <StateView view={view} mode={mode} session={demoSession(view)} preview onShowQr={() => {}} onHideQr={() => {}} />
+              <StateView view={view} mode={mode} session={demoSession(view)} onShowQr={() => {}} onHideQr={() => {}} />
             </div>
           </figure>
         ))}

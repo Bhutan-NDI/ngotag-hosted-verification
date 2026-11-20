@@ -1,4 +1,4 @@
-import type { HostedRequest, HostedStatus, HostedStatusResponse } from "./types";
+import type { HostedRequest, HostedStatus, HostedStatusResponse, PublicSession, ReturnReason } from "./types";
 
 /**
  * Browser client for the platform's public, read-only hosted-page endpoints (HVP-SD §5.3).
@@ -78,15 +78,16 @@ function safeUrl(v: unknown): string | undefined {
   }
 }
 
-function toEpochMs(v: unknown): number {
-  if (typeof v === "number") return v < 1e12 ? v * 1000 : v; // seconds or ms
-  if (typeof v === "string") {
+/** Epoch seconds, epoch ms or an ISO date → epoch ms; undefined if it is none of those. */
+function epochMs(v: unknown): number | undefined {
+  if (typeof v === "number") return Number.isFinite(v) && v > 0 ? (v < 1e12 ? v * 1000 : v) : undefined;
+  if (typeof v === "string" && v.trim()) {
     const n = Number(v);
-    if (Number.isFinite(n)) return toEpochMs(n);
+    if (Number.isFinite(n)) return epochMs(n);
     const t = Date.parse(v);
     if (Number.isFinite(t)) return t;
   }
-  throw new Error("invalid expiresAt");
+  return undefined;
 }
 
 export async function fetchHostedRequest(apiBaseUrl: string, hostedId: string, signal?: AbortSignal): Promise<HostedRequest> {
@@ -100,27 +101,43 @@ export async function fetchHostedRequest(apiBaseUrl: string, hostedId: string, s
     proofRequestURL,
     // Deep links may use the wallet's custom scheme; only accept a string.
     deepLinkURL: typeof d.deepLinkURL === "string" && !/^\s*(javascript|data|vbscript):/i.test(d.deepLinkURL) ? d.deepLinkURL : undefined,
-    expiresAt: toEpochMs(d.expiresAt),
-    validForSeconds: positiveNumber(d.expiresInSeconds),
+    expiresAt: requiredEpochMs(d.expiresAt),
+    serverTime: epochMs(d.serverTime),
   };
 }
 
-function positiveNumber(v: unknown): number | undefined {
-  const n = typeof v === "string" ? Number(v) : v;
-  return typeof n === "number" && Number.isFinite(n) && n > 0 ? n : undefined;
+function requiredEpochMs(v: unknown): number {
+  const t = epochMs(v);
+  if (t === undefined) throw new Error("invalid expiresAt");
+  return t;
 }
 
 export async function fetchHostedStatus(apiBaseUrl: string, hostedId: string, signal?: AbortSignal): Promise<HostedStatusResponse> {
   const d = unwrap(await getJson(endpoint(apiBaseUrl, hostedId, "/status"), signal));
   const status = String(d.status ?? "").toLowerCase() as HostedStatus;
   if (!STATUSES.includes(status)) throw new Error(`unknown status "${String(d.status)}"`);
-  return { status, returnUrl: WITH_RETURN_URL.includes(status) ? safeUrl(d.returnUrl) : undefined };
+  const returnUrl = WITH_RETURN_URL.includes(status) ? safeUrl(d.returnUrl) : undefined;
+  return {
+    status,
+    returnUrl,
+    returnUrlExpiresAt: returnUrl ? epochMs(d.returnUrlExpiresAt) : undefined,
+    serverTime: epochMs(d.serverTime),
+  };
 }
 
-/** "Start again at <returnHost>": the relying party's redirectUri with error=expired, no code (DL-013). */
-export function startAgainUrl(redirectUri: string): string {
+/** The relying party's redirectUri with `error=<reason>` and never a response_code (DL-013, DL-019). */
+export function reasonUrl(redirectUri: string, reason: ReturnReason): string {
   const u = new URL(redirectUri);
   u.searchParams.delete("response_code");
-  u.searchParams.set("error", "expired");
+  u.searchParams.set("error", reason);
   return u.toString();
+}
+
+/**
+ * Where a return button goes (DL-019(2)): the coded returnUrl while it is still valid, otherwise
+ * redirectUri with the reason. Never the bare redirectUri. The flow drops returnUrl shortly
+ * before returnUrlExpiresAt, so "still valid" is simply "still present".
+ */
+export function returnHref(session: PublicSession, reason: ReturnReason): string {
+  return session.returnUrl ?? reasonUrl(session.redirectUri, reason);
 }

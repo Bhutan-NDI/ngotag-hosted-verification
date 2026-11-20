@@ -3,7 +3,6 @@
  * {braces} are filled by <Fmt>:
  *   {brand}    "Bhutan NDI" in the accent colour   {host} the relying party's return host (DL-009)
  *   {scan}     the wallet's scan-button image       {download} the "Download Now!" link
- *   {minutes}  the request's lifetime               {seconds} auto-return countdown
  *
  * The page shows NDI branding and the return host only — never an organisation name (DL-009).
  * NOTE: Dzongkha copy must be reviewed by a native speaker / DDC before launch (DL-010).
@@ -37,6 +36,7 @@ export interface Messages {
   stepTapScan: string;
   scanButtonAlt: string;
   qrTitle: string;
+  openOnThisPhone: string;
 
   // Scanned (DL-016) — never "Verifying your details": nothing is approved yet
   scanned: string;
@@ -69,13 +69,10 @@ export interface Messages {
   failedBody: string;
   expiredTitle: string;
   expiredBody: string;
-  expiredBodyMinutes: string;
-  autoReturn: string;
-  stayHere: string;
   startAgainAt: string;
+  cancelReturn: string;
   timedOutTitle: string;
   timedOutBody: string;
-  timedOutBodyMinutes: string;
   notFoundTitle: string;
   notFoundBody: string;
   goneBody: string;
@@ -106,6 +103,7 @@ const en: Messages = {
   stepTapScan: "Tap the scan button {scan} and scan this QR code",
   scanButtonAlt: "scan",
   qrTitle: "Scan with Bhutan NDI Wallet",
+  openOnThisPhone: "On this phone? Open the app",
 
   scanned: "Scanned",
   scannedBody: "Accept or decline in your Bhutan NDI app.",
@@ -135,13 +133,10 @@ const en: Messages = {
   failedBody: "The check did not finish. To try again, start from {host}.",
   expiredTitle: "This request has expired",
   expiredBody: "Each request is only valid for a limited time. To try again, start from {host}.",
-  expiredBodyMinutes: "Each request is only valid for {minutes} minutes. To try again, start from {host}.",
-  autoReturn: "Taking you back to {host} in {seconds} seconds.",
-  stayHere: "Stay on this page",
   startAgainAt: "Start again at {host}",
+  cancelReturn: "Cancel and return to {host}",
   timedOutTitle: "You did not approve in time",
   timedOutBody: "The request was not answered in time. To try again, start from {host}.",
-  timedOutBodyMinutes: "The request was not answered within {minutes} minutes. To try again, start from {host}.",
   notFoundTitle: "This request is no longer available",
   notFoundBody: "This link has already been used, or it is too old. To try again, start from the service you were using.",
   goneBody: "If you approved it in the app, continue at {host}. If not, start again from there.",
@@ -172,6 +167,7 @@ const dz: Messages = {
   stepTapScan: "སྐེན་གྱི་ཨེབ་རྟ {scan} ལུ་ ཨེབ་སྟེ་ QR ཨང་རྟགས་འདི་ སྐེན་འབད།",
   scanButtonAlt: "སྐེན།",
   qrTitle: "Bhutan NDI ཝོ་ལེཊི་གིས་ སྐེན་འབད།",
+  openOnThisPhone: "བརྒྱུད་འཕྲིན་འདི་ཐོག་ཨིན་ན? གློག་རིམ་ ཁ་ཕྱེ།",
 
   scanned: "སྐེན་འབད་ཡི།",
   scannedBody: "ཁྱོད་ཀྱི་ Bhutan NDI གློག་རིམ་ནང་ ཁས་ལེན་ ཡང་ན་ ཁས་མ་ལེན་འབད།",
@@ -201,13 +197,10 @@ const dz: Messages = {
   failedBody: "བདེན་དཔྱད་ མཇུག་མ་བསྡུ། ལོག་འབད་རྩོལ་བསྐྱེད་ནིའི་དོན་ལུ་ {host} ལས་ འགོ་བཙུགས།",
   expiredTitle: "ཞུ་བ་འདི་ དུས་ཡོལ་ཡི།",
   expiredBody: "ཞུ་བ་རེ་རེ་ དུས་ཚོད་ཚད་ཡོད་ཅིག་གི་རིང་རྐྱངམ་ཅིག་ ནུས་ཅན་ཨིན། ལོག་འབད་རྩོལ་བསྐྱེད་ནིའི་དོན་ལུ་ {host} ལས་ འགོ་བཙུགས།",
-  expiredBodyMinutes: "ཞུ་བ་རེ་རེ་ སྐར་མ་ {minutes} གི་རིང་རྐྱངམ་ཅིག་ ནུས་ཅན་ཨིན། ལོག་འབད་རྩོལ་བསྐྱེད་ནིའི་དོན་ལུ་ {host} ལས་ འགོ་བཙུགས།",
-  autoReturn: "སྐར་ཆ་ {seconds} ནང་ ཁྱོད་ {host} ལུ་ ལོག་གཏང་འོང་།",
-  stayHere: "ཤོག་ངོས་འདི་ནང་ སྡོད།",
   startAgainAt: "{host} ལུ་ ལོག་སྟེ་ འགོ་བཙུགས།",
+  cancelReturn: "ཆ་མེད་གཏང་སྟེ་ {host} ལུ་ལོག",
   timedOutTitle: "ཁྱོད་ཀྱིས་ དུས་ཚོད་ནང་ ཆོག་མཆན་མ་བྱིན།",
   timedOutBody: "ཞུ་བ་ལུ་ དུས་ཚོད་ནང་ ལན་མ་བྱིན། ལོག་འབད་རྩོལ་བསྐྱེད་ནིའི་དོན་ལུ་ {host} ལས་ འགོ་བཙུགས།",
-  timedOutBodyMinutes: "ཞུ་བ་ལུ་ སྐར་མ་ {minutes} ནང་ ལན་མ་བྱིན། ལོག་འབད་རྩོལ་བསྐྱེད་ནིའི་དོན་ལུ་ {host} ལས་ འགོ་བཙུགས།",
   notFoundTitle: "ཞུ་བ་འདི་ ད་ལྟོ་ མིན་འདུག",
   notFoundBody: "འབྲེལ་མཐུད་འདི་ ལག་ལེན་འཐབ་ཚར་ཡི་ ཡང་ན་ རྙིངམ་ཨིན། ལོག་འབད་རྩོལ་བསྐྱེད་ནིའི་དོན་ལུ་ ཁྱོད་ཀྱིས་ ལག་ལེན་འཐབ་མི་ ཞབས་ཏོག་ལས་ འགོ་བཙུགས།",
   goneBody: "གློག་རིམ་ནང་ ཆོག་མཆན་བྱིན་ཡོད་པ་ཅིན་ {host} ལུ་ འཕྲོ་མཐུད། མེད་པ་ཅིན་ དེ་ལས་ ལོག་སྟེ་ འགོ་བཙུགས།",
