@@ -33,11 +33,7 @@ function endpoint(apiBaseUrl: string, hostedId: string, suffix = "") {
   return `${apiBaseUrl.replace(/\/+$/, "")}/verification/hosted/${encodeURIComponent(hostedId)}${suffix}`;
 }
 
-/**
- * Aborts on the caller's signal or after REQUEST_TIMEOUT_MS. Built by hand: AbortSignal.any
- * (Safari 17.4+) and AbortSignal.timeout (Safari 16+) are missing on older iPhones, and
- * Next.js does not polyfill them — the throw would leave the page on "Reconnecting" forever.
- */
+// Hand-rolled timeout: AbortSignal.any/timeout are missing on older Safari.
 async function getJson(url: string, signal?: AbortSignal): Promise<unknown> {
   const ctrl = new AbortController();
   const abort = () => ctrl.abort();

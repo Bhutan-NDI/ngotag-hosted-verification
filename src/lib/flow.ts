@@ -31,17 +31,17 @@ const codeExpired = (returnUrlExpiresAt: number | undefined, now: number) =>
 export interface FlowState {
   view: View;
   session?: PublicSession;
-  /** The user tapped "Open Bhutan NDI": the wallet returns them, so never redirect on our own (DL-007). */
+  /**
+   * The deep link reached the wallet (the page lost focus after the tap): the wallet returns the
+   * citizen, so never redirect on our own (DL-007). A tap that opened nothing doesn't count, and
+   * "Use QR code instead" clears it, so a QR completion still returns automatically (DL-019(1)).
+   */
   tappedDeepLink: boolean;
   /** Whether a `scanned` status was seen, to tell "expired" from "did not approve in time". */
   wasScanned: boolean;
   /** View to go back to once polling recovers. */
   resumeView?: View;
-  /**
-   * The platform gave a final answer (or the request is gone): stop polling, never change again.
-   * The page's own deadline does NOT settle it: the platform keeps a request open for a grace
-   * period after `expiresAt` (REQUEST_DEADLINE_GRACE_SECONDS), so a late approval still returns the user.
-   */
+  /** Final answer from the platform: stop polling. The page's own deadline does not settle (grace period). */
   settled: boolean;
 }
 
@@ -55,7 +55,8 @@ export type FlowAction =
   | { type: "code-expired" }
   | { type: "deadline" }
   | { type: "tap-deep-link" }
-  | { type: "open-timeout" }
+  /** ~4 s after the tap with no sign of the wallet. `web`: back to the QR code, which stays on screen. */
+  | { type: "open-timeout"; web?: boolean }
   | { type: "page-hidden" }
   | { type: "show-qr" }
   | { type: "hide-qr" }
@@ -71,15 +72,12 @@ function expiredView(state: FlowState): View {
 }
 
 export function flowReducer(state: FlowState, action: FlowAction): FlowState {
-  // Another tab is returning with the code. A tab still waiting in "returning" (in the
-  // background, not yet navigated) must stand down too, or it would reuse the code later.
-  // Drop returnUrl too: its response_code is being used by the other tab, so no Return button.
+  // Another tab is returning with the code: stand down, and drop its now-used returnUrl.
   if (action.type === "returned-elsewhere" && state.view === "returning") {
     const session = state.session && { ...state.session, returnUrl: undefined };
     return { ...state, session, view: "returned", resumeView: undefined, settled: true };
   }
-  // The code is about to lapse: drop returnUrl so every button falls back to its reason link,
-  // and a tab still waiting in "returning" stands down rather than return with a dead code.
+  // The code is about to lapse: buttons fall back to their reason link; "returning" stands down.
   if (action.type === "code-expired") {
     if (!state.session?.returnUrl) return state;
     const session = { ...state.session, returnUrl: undefined };
@@ -102,6 +100,8 @@ export function flowReducer(state: FlowState, action: FlowAction): FlowState {
     // The status check stopped finding a loaded request. After the deep link the
     // service has usually used the code already, so show "All done here" (Figma 7).
     case "gone":
+      // Already past the deadline: the request simply expired; keep that screen.
+      if (EXPIRED_VIEWS.includes(state.view)) return { ...state, resumeView: undefined, settled: true };
       return { ...state, view: state.tappedDeepLink ? "returned" : "gone", resumeView: undefined, settled: true };
 
     case "status": {
@@ -145,15 +145,18 @@ export function flowReducer(state: FlowState, action: FlowAction): FlowState {
       return { ...state, view: expiredView(state), resumeView: undefined };
 
     case "tap-deep-link":
-      return { ...state, view: "opening", tappedDeepLink: true };
+      return { ...state, view: "opening" };
     case "open-timeout":
-      return state.view === "opening" ? { ...state, view: "still-opening" } : state;
+      if (state.view !== "opening") return state;
+      return { ...state, view: action.web ? "ready" : "still-opening" };
     case "page-hidden":
       // The wallet took focus: when the user comes back, show "waiting".
-      return state.view === "opening" || state.view === "still-opening" ? { ...state, view: "waiting" } : state;
+      return state.view === "opening" || state.view === "still-opening"
+        ? { ...state, view: "waiting", tappedDeepLink: true }
+        : state;
 
     case "show-qr":
-      return PENDING_VIEWS.includes(state.view) ? { ...state, view: "qr" } : state;
+      return PENDING_VIEWS.includes(state.view) ? { ...state, view: "qr", tappedDeepLink: false } : state;
     case "hide-qr":
       return state.view === "qr" ? { ...state, view: "ready" } : state;
 

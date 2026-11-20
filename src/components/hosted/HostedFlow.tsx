@@ -98,8 +98,9 @@ export function HostedFlow({ hostedId, apiBaseUrl, mode }: Props) {
       timer = setTimeout(poll, delay);
     };
 
-    const poll = async () => {
-      if (inFlight || ctrl.signal.aborted || now() >= stopAt) return;
+    // stopAt ends scheduled polls only; a tab coming back always polls once (hidden while in the wallet).
+    const poll = async (force = false) => {
+      if (inFlight || ctrl.signal.aborted || (!force && now() >= stopAt)) return;
       inFlight = true;
       try {
         const response = await fetchHostedStatus(apiBaseUrl, hostedId, ctrl.signal);
@@ -129,7 +130,7 @@ export function HostedFlow({ hostedId, apiBaseUrl, mode }: Props) {
     const onVisible = () => {
       if (document.visibilityState === "visible") {
         clearTimeout(timer);
-        poll();
+        poll(true);
       }
     };
     document.addEventListener("visibilitychange", onVisible);
@@ -165,9 +166,9 @@ export function HostedFlow({ hostedId, apiBaseUrl, mode }: Props) {
   /* -- 4. Wallet deep link: "still opening", and leaving for the app -------- */
   useEffect(() => {
     if (view !== "opening") return;
-    const t = setTimeout(() => dispatch({ type: "open-timeout" }), OPEN_TIMEOUT_MS);
+    const t = setTimeout(() => dispatch({ type: "open-timeout", web: mode === "web" }), OPEN_TIMEOUT_MS);
     return () => clearTimeout(t);
-  }, [view]);
+  }, [view, mode]);
 
   useEffect(() => {
     if (view !== "opening" && view !== "still-opening") return;
