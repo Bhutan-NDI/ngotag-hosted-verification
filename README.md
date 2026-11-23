@@ -158,7 +158,7 @@ To try the production build locally: `npm run build && npm run serve` serves `ou
 
 ## Licence
 
-The code is licensed under the [Apache License 2.0](LICENSE). See [CONTRIBUTING.md](CONTRIBUTING.md) to contribute, and [SECURITY.md](SECURITY.md) to report a vulnerability.
+Copyright 2026 Bhutan NDI. The code is licensed under the [Apache License 2.0](LICENSE); see also [NOTICE](NOTICE). See [CONTRIBUTING.md](CONTRIBUTING.md) to contribute, and [SECURITY.md](SECURITY.md) to report a vulnerability.
 
 The licence does not cover:
 
