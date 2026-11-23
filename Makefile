@@ -5,8 +5,8 @@ DEPLOYMENT_CONFIG_REPOSITORY ?=
 CONFIRM ?=
 
 # A DevOps operator starts every hosted-page release through one of these targets,
-# each from a clean, up-to-date main:
-#   deploy-qa     releases the current main head to QA
+# each from the clean, up-to-date branch of its environment:
+#   deploy-qa     releases the current develop head to QA
 #   deploy-stage  releases the current main head to Stage as a release candidate
 #   deploy-prod   promotes the exact bundle Stage runs to Prod (asks for confirmation)
 # Each target pins the private manifest commit and the source commit in an

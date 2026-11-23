@@ -2,8 +2,8 @@
 
 # Starts a release for one environment. Run it through `make deploy-<environment>`.
 #
-# QA and Stage release the current head of main. Prod promotes the bundle Stage
-# runs, as recorded in the private Stage ledger, and asks for typed confirmation.
+# QA releases the current head of develop and Stage the current head of main. Prod
+# promotes the bundle Stage runs, as recorded in the private Stage ledger, and asks for typed confirmation.
 # The script waits for CI on the exact commit, validates the private manifest,
 # and pushes an immutable trigger tag that pins the manifest commit and the
 # source commit; the workflow repeats every check before it can obtain AWS

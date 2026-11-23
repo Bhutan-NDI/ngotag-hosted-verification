@@ -14,8 +14,8 @@ test -f "$contract" || {
   exit 1
 }
 
-# Every environment releases from main. QA and Stage build the current head; Prod
-# never builds, it only promotes the bundle Stage runs.
+# QA releases from develop and Stage from main, each building the current head. Prod
+# never builds, it only promotes the bundle Stage runs, a commit on main.
 jq -e '
   .schema_version == 1 and
   (keys == ["ci", "environments", "release", "schema_version"]) and
@@ -26,14 +26,17 @@ jq -e '
   (.environments | keys == ["prod", "qa", "stage"]) and
   ([.environments | to_entries[] | select(
     .value.tag_prefix != ("hosted-verification-" + .key + "-") or
-    .value.allowed_branch != "main" or
+    (.value.allowed_branch | IN("develop", "main") | not) or
     (.value.channel | IN("qa", "rc", "stable") | not)
   )] | length == 0) and
   (.environments.qa | keys == ["allowed_branch", "channel", "tag_prefix"]) and
+  .environments.qa.allowed_branch == "develop" and
   .environments.qa.channel == "qa" and
   (.environments.stage | keys == ["allowed_branch", "channel", "tag_prefix"]) and
+  .environments.stage.allowed_branch == "main" and
   .environments.stage.channel == "rc" and
   (.environments.prod | keys == ["allowed_branch", "channel", "promote_from", "tag_prefix"]) and
+  .environments.prod.allowed_branch == "main" and
   .environments.prod.channel == "stable" and
   .environments.prod.promote_from == "stage" and
   (.ci | keys == ["app_slug", "check_name"]) and

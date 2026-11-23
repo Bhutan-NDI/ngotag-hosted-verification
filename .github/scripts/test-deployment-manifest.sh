@@ -19,7 +19,9 @@ rejects_contract() {
 }
 
 accepts_contract "$contract" "the checked-in contract"
-rejects_contract '.environments.qa.allowed_branch = "develop"' "QA released from another branch"
+rejects_contract '.environments.qa.allowed_branch = "main"' "QA released from main"
+rejects_contract '.environments.stage.allowed_branch = "develop"' "Stage released from develop"
+rejects_contract '.environments.prod.allowed_branch = "develop"' "Prod promoting from develop"
 rejects_contract '.environments.stage.tag_prefix = "hosted-verification-qa-"' "a wrong Stage tag prefix"
 rejects_contract 'del(.environments.prod.promote_from)' "Prod without a promotion source"
 rejects_contract '.environments.qa.promote_from = "stage"' "QA that promotes"
@@ -47,7 +49,7 @@ cat > "$work/stage.json" <<'EOF'
   }
 }
 EOF
-jq '.environment = "qa"' "$work/stage.json" > "$work/qa.json"
+jq '.environment = "qa" | .deployment.allowed_branch = "develop"' "$work/stage.json" > "$work/qa.json"
 jq '.environment = "prod" | .release = {deployed: null} | del(.deployment.build_values)' "$work/stage.json" > "$work/prod.json"
 
 check_manifest stage "$work/stage.json" || { echo "rejected a valid Stage manifest" >&2; exit 1; }
@@ -80,6 +82,7 @@ rejects stage "$work/stage.json" "a multi-line build value" '.deployment.build_v
 rejects stage "$work/stage.json" "an unknown deployment key" '.deployment.distribution_id = "E123"'
 rejects prod "$work/prod.json" "build values" '.deployment.build_values = {}'
 rejects prod "$work/prod.json" "a next_version" '.release.next_version = "0.1.0"'
+rejects qa "$work/qa.json" "QA released from main" '.deployment.allowed_branch = "main"'
 rejects qa "$work/qa.json" "a Prod-style release" '.release = {deployed: null}'
 
 echo "deployment manifest: all tests passed"

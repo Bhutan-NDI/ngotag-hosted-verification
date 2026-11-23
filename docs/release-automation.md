@@ -6,16 +6,16 @@ How the hosted verification page is released to its AWS hosting. It follows the 
 
 | Environment | Source | Artifact | GitHub Release |
 |---|---|---|---|
-| QA | current `main` head | site bundle built by the run | pre-release `hosted-verification/vX.Y.Z-qa.N` |
+| QA | current `develop` head | site bundle built by the run | pre-release `hosted-verification/vX.Y.Z-qa.N` |
 | Stage | current `main` head | site bundle built by the run | pre-release `hosted-verification/vX.Y.Z-rc.N` |
 | Prod | the commit Stage runs | Stage's bundle, deployed unchanged | release `hosted-verification/vX.Y.Z` |
 
-A DevOps operator starts every release from a clean checkout of `main`:
+A DevOps operator starts every release from a clean checkout of the environment's branch (`develop` for QA, `main` for Stage and Prod):
 
 ```sh
-make deploy-qa    DEPLOYMENT_CONFIG_REPOSITORY=Bhutan-NDI/ndi-tf-manifests
-make deploy-stage DEPLOYMENT_CONFIG_REPOSITORY=Bhutan-NDI/ndi-tf-manifests
-make deploy-prod  DEPLOYMENT_CONFIG_REPOSITORY=Bhutan-NDI/ndi-tf-manifests   # asks for confirmation
+make deploy-qa    DEPLOYMENT_CONFIG_REPOSITORY=Bhutan-NDI/ndi-tf-manifests   # on develop
+make deploy-stage DEPLOYMENT_CONFIG_REPOSITORY=Bhutan-NDI/ndi-tf-manifests   # on main
+make deploy-prod  DEPLOYMENT_CONFIG_REPOSITORY=Bhutan-NDI/ndi-tf-manifests   # on main, asks for confirmation
 ```
 
 Make checks the branch, a clean tree, that the local head matches the remote, the private deployment manifest, and that the `build` CI check passed for the exact commit. It then pushes an immutable trigger tag, `hosted-verification-<environment>-<manifest commit>-<source commit>-<UTC time>`, and watches the workflow (`DEPLOY_WAIT=false` skips watching). `deploy-prod` promotes the release candidate recorded in Stage's private ledger; it shows the candidate and commit and asks the operator to type `prod` (or pass `CONFIRM=prod`).
@@ -26,7 +26,7 @@ Pushing trigger tags by hand or running the workflow any other way is not an app
 
 `.github/workflows/deploy-hosted-verification.yml`:
 
-1. **Resolve** (no secrets). Validates the trigger tag against `.github/hosted-verification-release-contract.json`: the environment, that QA and Stage use the current `main` head, and that Prod promotes a commit on `main`.
+1. **Resolve** (no secrets). Validates the trigger tag against `.github/hosted-verification-release-contract.json`: the environment, that QA uses the current `develop` head and Stage the current `main` head, and that Prod promotes a commit on `main`.
 2. **Build** (QA and Stage). Reads the environment's build-time values from the private manifest, then lints, type-checks, builds the static export, runs the CSP check, and packs the site into one bundle (`hosted-verification-out.tar.gz`) with its SHA-256.
 3. **Deploy.**
    - Waits for CI on the exact commit and validates the private manifest.
@@ -73,7 +73,7 @@ To roll back Prod, revert on `main`, release the fix to Stage as a new release c
 }
 ```
 
-Prod has no `next_version` and no `build_values`. After each successful release the workflow writes `release.deployed` (version, release tag, source and manifest commits, bundle checksum, promoted-from, workflow run and time), using a manifest-writer GitHub App. It refuses to write if the reviewed part of the manifest changed since the deployment began.
+`allowed_branch` is `develop` in the QA manifest and `main` in Stage and Prod. Prod has no `next_version` and no `build_values`. After each successful release the workflow writes `release.deployed` (version, release tag, source and manifest commits, bundle checksum, promoted-from, workflow run and time), using a manifest-writer GitHub App. It refuses to write if the reviewed part of the manifest changed since the deployment began.
 
 ## GitHub Environments
 

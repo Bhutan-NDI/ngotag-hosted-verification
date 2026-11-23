@@ -7,7 +7,7 @@
   },
   "environments": {
     "qa": {
-      "allowed_branch": "main",
+      "allowed_branch": "develop",
       "tag_prefix": "hosted-verification-qa-",
       "channel": "qa"
     },

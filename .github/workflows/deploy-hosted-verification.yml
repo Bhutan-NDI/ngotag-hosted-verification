@@ -6,7 +6,7 @@ run-name: Deploy hosted verification [${{ github.ref_name }}]
 # these trigger tags; CI keeps the globs synchronized with
 # .github/hosted-verification-release-contract.json.
 #
-# QA and Stage build the current main head into one site bundle. Prod never
+# QA builds the current develop head and Stage the current main head into one site bundle. Prod never
 # rebuilds: it copies the exact bundle Stage runs, checked against the checksum in
 # the private ledger. The hosting and the deploy role live in ndi-iac-tf; the
 # per-environment values and the release ledger live in ndi-tf-manifests.

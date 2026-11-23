@@ -18,7 +18,7 @@ This repository is public, so any new GitHub Actions workflow must follow these 
 
 - No secrets in workflows that run on pull requests.
 - Never use `pull_request_target` together with a checkout of pull-request code.
-- Deploys start only with `make deploy-<environment>` from `main`, which pushes a `hosted-verification-*` release tag that only repository administrators and the `devops` team can create. The workflow repeats the branch, CI and manifest checks before it gets AWS credentials, and never runs from forks. See [docs/release-automation.md](docs/release-automation.md).
+- Deploys start only with `make deploy-<environment>` from `develop` (QA) or `main` (Stage and Prod), which pushes a `hosted-verification-*` release tag that only repository administrators and the `devops` team can create. The workflow repeats the branch, CI and manifest checks before it gets AWS credentials, and never runs from forks. See [docs/release-automation.md](docs/release-automation.md).
 
 ### Licence
 
