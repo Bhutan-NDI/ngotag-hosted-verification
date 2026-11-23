@@ -1,34 +1,78 @@
-name: Deploy
+name: Deploy hosted page
+run-name: Deploy hosted page [${{ github.ref_name }}]
 
-# Deploys the static export to the CDN (README "Deploy"). Runs only on pushes to the protected branches,
-# never on pull requests or forks, and holds no secrets: AWS access is a short-lived OIDC role that only
-# this GitHub Environment can assume (CONTRIBUTING.md "Workflows"). The bucket, CDN, config.json and the
-# role are managed in ngotag-iac-tf (hosted-page), not in this repository.
-#   develop -> stage      main -> prod
+# Deploys the static export to the CDN (README "Deploy"). Like the other NGOTAG deploy workflows it runs only
+# for a release tag, holds no secrets of its own, and takes all deployment configuration from protected GitHub
+# Environment secrets. AWS access is a short-lived OIDC role that only the matching GitHub Environment can
+# assume. The bucket, CDN, config.json and the role are managed in ngotag-iac-tf (hosted-page), not here.
+#
+#   tag                 environment   the tagged commit must be the current head of
+#   hosted-qa-*         qa            develop
+#   hosted-stage-*      stage         main
+#   hosted-prod-*       prod          main
 on:
   push:
-    branches: [develop, main]
+    tags:
+      - hosted-qa-*
+      - hosted-stage-*
+      - hosted-prod-*
 
 permissions:
   contents: read
 
-# One deploy per environment at a time; a newer push waits instead of cancelling a running upload.
-concurrency:
-  group: deploy-${{ github.ref_name }}
-  cancel-in-progress: false
-
 jobs:
-  deploy:
+  resolve:
+    name: Resolve release target
     runs-on: ubuntu-latest
-    environment: ${{ github.ref_name == 'main' && 'prod' || 'stage' }}
+    outputs:
+      target_environment: ${{ steps.release.outputs.target_environment }}
+    steps:
+      # Actions are pinned to a commit SHA (as in ngotag-studio): the deploy job can assume the deploy role.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Map the tag to an environment and check the branch head
+        id: release
+        shell: bash
+        run: |
+          set -euo pipefail
+          case "$GITHUB_REF_NAME" in
+            hosted-qa-*)    environment=qa;    branch=develop ;;
+            hosted-stage-*) environment=stage; branch=main ;;
+            hosted-prod-*)  environment=prod;  branch=main ;;
+            *) echo "unsupported release tag" >&2; exit 1 ;;
+          esac
+          head="$(git rev-parse --verify "refs/remotes/origin/${branch}^{commit}")" || {
+            echo "could not resolve the current $branch branch head" >&2
+            exit 1
+          }
+          test "$GITHUB_SHA" = "$head" || {
+            echo "$environment releases must use the current $branch head" >&2
+            exit 1
+          }
+          echo "target_environment=$environment" >> "$GITHUB_OUTPUT"
+
+  deploy:
+    name: Deploy hosted page (${{ needs.resolve.outputs.target_environment }})
+    needs: resolve
+    runs-on: ubuntu-latest
+    environment: ${{ needs.resolve.outputs.target_environment }}
+    # One deploy per environment at a time; a newer release waits instead of cancelling a running upload.
+    concurrency:
+      group: hosted-page-${{ needs.resolve.outputs.target_environment }}
+      cancel-in-progress: false
+    timeout-minutes: 15
     permissions:
       contents: read
       id-token: write
     env:
-      BUCKET: ${{ vars.S3_BUCKET }}
-      SITE_URL: ${{ vars.SITE_URL }}
+      BUCKET: ${{ secrets.HOSTED_PAGE_BUCKET }}
+      SITE_URL: ${{ secrets.HOSTED_PAGE_SITE_URL }}
+      AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID }}
     steps:
-      # Actions are pinned to a commit SHA (as in ngotag-studio): this job can assume the deploy role.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
@@ -43,19 +87,23 @@ jobs:
       - run: npm run build
         env:
           NEXT_TELEMETRY_DISABLED: 1
-          NEXT_PUBLIC_SUPPORT_EMAIL: ${{ vars.NEXT_PUBLIC_SUPPORT_EMAIL }}
-          NEXT_PUBLIC_SUPPORT_PHONE: ${{ vars.NEXT_PUBLIC_SUPPORT_PHONE }}
-          NEXT_PUBLIC_PLAY_STORE_URL: ${{ vars.NEXT_PUBLIC_PLAY_STORE_URL }}
-          NEXT_PUBLIC_APP_STORE_URL: ${{ vars.NEXT_PUBLIC_APP_STORE_URL }}
-          NEXT_PUBLIC_VIDEO_GUIDE_URL: ${{ vars.NEXT_PUBLIC_VIDEO_GUIDE_URL }}
+          NEXT_PUBLIC_SUPPORT_EMAIL: ${{ secrets.NEXT_PUBLIC_SUPPORT_EMAIL }}
+          NEXT_PUBLIC_SUPPORT_PHONE: ${{ secrets.NEXT_PUBLIC_SUPPORT_PHONE }}
+          NEXT_PUBLIC_PLAY_STORE_URL: ${{ secrets.NEXT_PUBLIC_PLAY_STORE_URL }}
+          NEXT_PUBLIC_APP_STORE_URL: ${{ secrets.NEXT_PUBLIC_APP_STORE_URL }}
+          NEXT_PUBLIC_VIDEO_GUIDE_URL: ${{ secrets.NEXT_PUBLIC_VIDEO_GUIDE_URL }}
       - run: npm run check:csp
         env:
           CHROME_PATH: /usr/bin/google-chrome
 
-      - uses: aws-actions/configure-aws-credentials@e6de054238d6b7531b4efff3b6587d9aade6a06c # v6.2.3
+      - name: Configure AWS credentials through GitHub OIDC
+        uses: aws-actions/configure-aws-credentials@e6de054238d6b7531b4efff3b6587d9aade6a06c # v6.2.3
         with:
-          role-to-assume: ${{ vars.AWS_ROLE_ARN }}
-          aws-region: ${{ vars.AWS_REGION }}
+          role-to-assume: ${{ secrets.AWS_HOSTED_PAGE_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Verify assumed AWS account
+        run: test "$(aws sts get-caller-identity --query Account --output text)" = "$AWS_ACCOUNT_ID"
 
       # Order matters: the new HTML is the last thing uploaded, and it only refers to files that are already there.
       # Nothing is deleted, so pages that are still open keep their old hashed files. config.json is never

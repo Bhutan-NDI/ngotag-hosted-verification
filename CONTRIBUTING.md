@@ -18,7 +18,7 @@ This repository is public, so any new GitHub Actions workflow must follow these 
 
 - No secrets in workflows that run on pull requests.
 - Never use `pull_request_target` together with a checkout of pull-request code.
-- Deploy jobs run only from protected branches in this repository, never from forks.
+- Deploy jobs run only for a release tag in this repository whose commit is the current head of a protected branch (the workflow checks it), never from forks.
 
 ### Licence
 
