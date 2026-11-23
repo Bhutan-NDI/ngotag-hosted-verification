@@ -1,9 +1,10 @@
 name: Deploy
 
-# Deploys the static export to the CDN (README "Deploy", infra/terraform). Runs only on pushes to the
-# protected branches, never on pull requests or forks, and holds no secrets: AWS access is a short-lived
-# OIDC role that only this GitHub Environment can assume (CONTRIBUTING.md "Workflows").
-#   develop -> staging      main -> production
+# Deploys the static export to the CDN (README "Deploy"). Runs only on pushes to the protected branches,
+# never on pull requests or forks, and holds no secrets: AWS access is a short-lived OIDC role that only
+# this GitHub Environment can assume (CONTRIBUTING.md "Workflows"). The bucket, CDN, config.json and the
+# role are managed in ngotag-iac-tf (hosted-page), not in this repository.
+#   develop -> stage      main -> prod
 on:
   push:
     branches: [develop, main]
@@ -19,7 +20,7 @@ concurrency:
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    environment: ${{ github.ref_name == 'main' && 'production' || 'staging' }}
+    environment: ${{ github.ref_name == 'main' && 'prod' || 'stage' }}
     permissions:
       contents: read
       id-token: write
@@ -27,8 +28,11 @@ jobs:
       BUCKET: ${{ vars.S3_BUCKET }}
       SITE_URL: ${{ vars.SITE_URL }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      # Actions are pinned to a commit SHA (as in ngotag-studio): this job can assume the deploy role.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: 22
           cache: npm
@@ -48,14 +52,14 @@ jobs:
         env:
           CHROME_PATH: /usr/bin/google-chrome
 
-      - uses: aws-actions/configure-aws-credentials@v4
+      - uses: aws-actions/configure-aws-credentials@e6de054238d6b7531b4efff3b6587d9aade6a06c # v6.2.3
         with:
           role-to-assume: ${{ vars.AWS_ROLE_ARN }}
           aws-region: ${{ vars.AWS_REGION }}
 
       # Order matters: the new HTML is the last thing uploaded, and it only refers to files that are already there.
       # Nothing is deleted, so pages that are still open keep their old hashed files. config.json is never
-      # uploaded here: it belongs to the environment (infra/terraform), and the role is denied writing it.
+      # uploaded here: it belongs to the environment (ngotag-iac-tf), and the role is denied writing it.
       - name: Upload hashed assets
         run: aws s3 cp out/_next/static "s3://$BUCKET/_next/static" --recursive --cache-control "public, max-age=31536000, immutable"
       - name: Upload other files
