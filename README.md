@@ -151,7 +151,7 @@ To try the production build locally: `npm run build && npm run serve` serves `ou
 ## Assets
 
 - `public/figma/ndi-mark.png`: app mark on the dark tile above the title
-- `public/qr-logo.png`: round badge in the centre of the QR code, a 192px export (about 20 KB) of NDI's QR logo. The source artwork is not in this repository.
+- `public/qr-logo.png`: round badge in the centre of the QR code, a 192px export (about 20 KB) of NDI's QR logo. The source artwork is not in the current tree (an earlier commit still contains it).
 - `public/figma/*.svg`: generic UI icons (arrows, chevrons, status icons, spinner) exported from NDI's own Figma design for this page. They carry no third-party terms.
 - `public/badges/`: official Google Play and App Store badges (don't alter them)
 - `src/fonts/noto-serif-tibetan.woff2`: Noto Serif Tibetan (SIL OFL), Tibetan subset, for Dzongkha
@@ -162,7 +162,7 @@ Copyright 2026 Bhutan NDI. The code is licensed under the [Apache License 2.0](L
 
 The licence does not cover:
 
-- **the Bhutan NDI name, logos and icons**, including `public/figma/ndi-mark.png`, `public/figma/scan-button.png`, `public/qr-logo.png`, `public/ndi-mark-mint.png` and `src/app/favicon.ico`. Only the files the page needs are published; source artwork stays out of the repository. They identify Bhutan NDI and may not be used to suggest endorsement or to imitate the service.
+- **the Bhutan NDI name, logos and icons**, including `public/figma/ndi-mark.png`, `public/figma/scan-button.png`, `public/qr-logo.png`, `public/ndi-mark-mint.png` and `src/app/favicon.ico`. The current tree has only the files the page needs; earlier commits also contain unused NDI artwork (such as the QR logo source), which is covered by the same exclusion. They identify Bhutan NDI and may not be used to suggest endorsement or to imitate the service.
 - **the Noto Serif Tibetan font** (`src/fonts/noto-serif-tibetan.woff2`), under the SIL Open Font License 1.1;
 - **the store badges** (`public/badges/`), under Google's and Apple's badge guidelines.
 
