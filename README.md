@@ -148,6 +148,8 @@ To try the production build locally: `npm run build && npm run serve` serves `ou
 
 **Monitoring** (AC 10): a synthetic check every minute that loads `/v/<test id>` and calls the platform's status endpoint, with alerts. It replaces the old `/api/health`.
 
+**On AWS:** [infra/terraform](infra/terraform) builds this CDN (S3 and CloudFront) for one environment, and [.github/workflows/deploy.yml](.github/workflows/deploy.yml) releases to it: `develop` to staging, `main` to production. See [infra/terraform/README.md](infra/terraform/README.md).
+
 ## Assets
 
 - `public/figma/ndi-mark.png`: app mark on the dark tile above the title

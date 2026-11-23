@@ -1,0 +1,78 @@
+name: Deploy
+
+# Deploys the static export to the CDN (README "Deploy", infra/terraform). Runs only on pushes to the
+# protected branches, never on pull requests or forks, and holds no secrets: AWS access is a short-lived
+# OIDC role that only this GitHub Environment can assume (CONTRIBUTING.md "Workflows").
+#   develop -> staging      main -> production
+on:
+  push:
+    branches: [develop, main]
+
+permissions:
+  contents: read
+
+# One deploy per environment at a time; a newer push waits instead of cancelling a running upload.
+concurrency:
+  group: deploy-${{ github.ref_name }}
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: ${{ github.ref_name == 'main' && 'production' || 'staging' }}
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      BUCKET: ${{ vars.S3_BUCKET }}
+      SITE_URL: ${{ vars.SITE_URL }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run lint
+      - run: npx tsc --noEmit
+      # Build-time values are per environment, so the build happens here and not in CI.
+      - run: npm run build
+        env:
+          NEXT_TELEMETRY_DISABLED: 1
+          NEXT_PUBLIC_SUPPORT_EMAIL: ${{ vars.NEXT_PUBLIC_SUPPORT_EMAIL }}
+          NEXT_PUBLIC_SUPPORT_PHONE: ${{ vars.NEXT_PUBLIC_SUPPORT_PHONE }}
+          NEXT_PUBLIC_PLAY_STORE_URL: ${{ vars.NEXT_PUBLIC_PLAY_STORE_URL }}
+          NEXT_PUBLIC_APP_STORE_URL: ${{ vars.NEXT_PUBLIC_APP_STORE_URL }}
+          NEXT_PUBLIC_VIDEO_GUIDE_URL: ${{ vars.NEXT_PUBLIC_VIDEO_GUIDE_URL }}
+      - run: npm run check:csp
+        env:
+          CHROME_PATH: /usr/bin/google-chrome
+
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+
+      # Order matters: the new HTML is the last thing uploaded, and it only refers to files that are already there.
+      # Nothing is deleted, so pages that are still open keep their old hashed files. config.json is never
+      # uploaded here: it belongs to the environment (infra/terraform), and the role is denied writing it.
+      - name: Upload hashed assets
+        run: aws s3 cp out/_next/static "s3://$BUCKET/_next/static" --recursive --cache-control "public, max-age=31536000, immutable"
+      - name: Upload other files
+        run: |
+          aws s3 sync out "s3://$BUCKET" \
+            --exclude "_next/static/*" --exclude "*.html" --exclude "config.json" \
+            --cache-control "public, max-age=3600"
+      - name: Upload HTML
+        run: |
+          aws s3 sync out "s3://$BUCKET" \
+            --exclude "*" --include "*.html" \
+            --cache-control "no-store"
+
+      - name: Smoke test
+        run: |
+          set -euo pipefail
+          page=$(curl -fsS "$SITE_URL/v/smoke-test")
+          grep -q 'http-equiv="Content-Security-Policy"' <<<"$page"
+          curl -fsSI "$SITE_URL/v/smoke-test" | grep -qi '^x-frame-options: deny'
+          curl -fsS "$SITE_URL/config.json" | jq -e '.platformApiUrl | startswith("https://")' >/dev/null

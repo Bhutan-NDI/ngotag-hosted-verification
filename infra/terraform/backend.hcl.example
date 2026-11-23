@@ -1,0 +1,7 @@
+# Copy to backend-<environment>.hcl (git-ignored) and fill in. The state bucket is created once, by hand,
+# with versioning on. Use one state key per environment.
+bucket       = "<state-bucket>"
+key          = "ngotag-hosted-verification/staging.tfstate"
+region       = "<state-bucket-region>"
+use_lockfile = true
+encrypt      = true
