@@ -84,10 +84,7 @@ function TitleStack({ title, session, showReturn }: { title: string; session?: P
 /* QR frame                                                                  */
 /* ------------------------------------------------------------------------ */
 
-/**
- * Round QR badge. Rendered from public/QRlogo.svg (875 KB, embedded bitmap)
- * to a 192px PNG (~20 KB) — re-export it if the SVG changes.
- */
+/** Round QR badge: a 192px PNG export of NDI's QR logo (the source artwork is not in this repo). */
 const QR_LOGO = "/qr-logo.png";
 const QR_SIZE = 162;
 

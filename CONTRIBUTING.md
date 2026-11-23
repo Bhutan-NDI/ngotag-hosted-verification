@@ -22,4 +22,4 @@ This repository is public, so any new GitHub Actions workflow must follow these 
 
 ### Licence
 
-Contributions are made pursuant to the Developer's Certificate of Origin, available at [https://developercertificate.org](https://developercertificate.org), and licensed under the Apache License, version 2.0 (Apache-2.0). The Bhutan NDI name, logos and icons are not covered by the licence; see the README.
+By submitting a pull request, you confirm that you have the right to contribute the changes and agree that they are licensed under the Apache License, version 2.0 (Apache-2.0), like the rest of the repository. The Bhutan NDI name, logos and icons are not covered by the licence; see the README.
