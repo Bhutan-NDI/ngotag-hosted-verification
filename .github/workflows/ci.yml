@@ -17,6 +17,8 @@ jobs:
       - run: npm ci
       - run: npm run lint
       - run: npx tsc --noEmit
+      # The release automation: Makefile, release contract, scripts, notes scanner and deploy workflow.
+      - run: make release-check
       # Static export (out/) + the CSP <meta> tag with this build's script hashes.
       - run: npm run build
         env:

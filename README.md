@@ -148,19 +148,7 @@ To try the production build locally: `npm run build && npm run serve` serves `ou
 
 **Monitoring** (AC 10): a synthetic check every minute that loads `/v/<test id>` and calls the platform's status endpoint, with alerts. It replaces the old `/api/health`.
 
-**On AWS:** the CDN (S3 and CloudFront, with the rules above, `config.json` and the deploy role) is managed in the private `ngotag-iac-tf` repository, under `hosted-page`. [.github/workflows/deploy.yml](.github/workflows/deploy.yml) releases to it, as in the other NGOTAG repositories, from a release tag whose commit is the current head of the allowed branch:
-
-| Tag | GitHub Environment | Branch head |
-|---|---|---|
-| `hosted-qa-*` | `qa` | `develop` |
-| `hosted-stage-*` | `stage` | `main` |
-| `hosted-prod-*` | `prod` | `main` |
-
-```bash
-tag=hosted-stage-$(date -u +%Y%m%dT%H%M%SZ); git tag "$tag" && git push origin "$tag"
-```
-
-Each GitHub Environment holds these **secrets** (no Actions variables): `AWS_HOSTED_PAGE_DEPLOY_ROLE_ARN`, `AWS_ACCOUNT_ID`, `AWS_REGION`, `HOSTED_PAGE_BUCKET`, `HOSTED_PAGE_SITE_URL`, and the build-time `NEXT_PUBLIC_*` values (see Configuration). Releases upload only and never write `config.json`; to roll back, revert on the branch and release again, because a tag on an older commit is refused.
+**On AWS:** the hosting (S3 and CloudFront, with the CDN rules above, `config.json` and the deploy role) is managed in the private `ndi-iac-tf` repository, and the per-environment deploy values and the release ledger in the private `ndi-tf-manifests` repository, both under `hosted-verification`. Releases follow the pattern of the other NGOTAG services ([docs/release-automation.md](docs/release-automation.md)): they start only with `make deploy-qa`, `make deploy-stage` or `make deploy-prod` from a clean, up-to-date `main`, with `DEPLOYMENT_CONFIG_REPOSITORY=Bhutan-NDI/ndi-tf-manifests`. Prod never rebuilds: it promotes the exact bundle Stage runs, so build-time values must be the same in Stage and Prod, and anything that differs per environment belongs in `config.json`. `make release-check` runs the checks that CI runs on the release automation.
 
 ## Assets
 

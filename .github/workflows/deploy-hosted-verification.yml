@@ -1,0 +1,516 @@
+name: Deploy hosted verification
+run-name: Deploy hosted verification [${{ github.ref_name }}]
+
+# Releases the hosted verification page (a static site) to its S3 and CloudFront
+# hosting. Only `make deploy-qa`, `make deploy-stage` and `make deploy-prod` create
+# these trigger tags; CI keeps the globs synchronized with
+# .github/hosted-verification-release-contract.json.
+#
+# QA and Stage build the current main head into one site bundle. Prod never
+# rebuilds: it copies the exact bundle Stage runs, checked against the checksum in
+# the private ledger. The hosting and the deploy role live in ndi-iac-tf; the
+# per-environment values and the release ledger live in ndi-tf-manifests.
+#
+# This repository is public, and so are these logs. The bucket and site names come
+# from the private deployment manifest and are masked before use. Release notes
+# carry no infrastructure details.
+on:
+  push:
+    tags:
+      - hosted-verification-qa-*
+      - hosted-verification-stage-*
+      - hosted-verification-prod-*
+
+# AWS access is obtained only through short-lived OIDC credentials after the
+# release checks pass.
+permissions:
+  contents: read
+
+jobs:
+  resolve:
+    name: Resolve release target
+    runs-on: ubuntu-latest
+    # Runs before any job output exists, so the group can only use github.ref_name.
+    # queue: max keeps pending resolvers in FIFO order instead of cancelling older ones.
+    concurrency:
+      group: hosted-verification-release-resolver-${{ startsWith(github.ref_name, 'hosted-verification-qa-') && 'qa' || startsWith(github.ref_name, 'hosted-verification-stage-') && 'stage' || startsWith(github.ref_name, 'hosted-verification-prod-') && 'prod' || 'invalid' }}
+      cancel-in-progress: false
+      queue: max
+    outputs:
+      target_environment: ${{ steps.release.outputs.target_environment }}
+      channel: ${{ steps.release.outputs.channel }}
+      manifest_ref: ${{ steps.release.outputs.manifest_ref }}
+      source_sha: ${{ steps.release.outputs.source_sha }}
+      trigger_time: ${{ steps.release.outputs.trigger_time }}
+    steps:
+      # Actions are pinned to a commit SHA (as in ngotag-studio): later jobs can assume the deploy role.
+      - name: Check out tagged source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Validate the Makefile release trigger
+        id: release
+        shell: bash
+        run: |
+          set -euo pipefail
+          contract=.github/hosted-verification-release-contract.json
+          sh .github/scripts/validate-release-contract.sh "$contract"
+
+          target_environment="$(jq -er --arg tag "$GITHUB_REF_NAME" '
+            [.environments | to_entries[] | select(.value.tag_prefix as $prefix | $tag | startswith($prefix)) | .key]
+            | if length == 1 then .[0] else empty end' "$contract")" || {
+            echo "unsupported release tag" >&2
+            exit 1
+          }
+          expected_branch="$(jq -er --arg environment "$target_environment" '.environments[$environment].allowed_branch' "$contract")"
+          channel="$(jq -er --arg environment "$target_environment" '.environments[$environment].channel' "$contract")"
+          tag_prefix="$(jq -er --arg environment "$target_environment" '.environments[$environment].tag_prefix' "$contract")"
+
+          tag_pattern='^([0-9a-f]{40})-([0-9a-f]{12})-([0-9]{4})([0-9]{2})([0-9]{2})T([0-9]{2})([0-9]{2})([0-9]{2})Z$'
+          [[ "${GITHUB_REF_NAME#"$tag_prefix"}" =~ $tag_pattern ]] || {
+            echo "release tag does not match the Makefile contract" >&2
+            exit 1
+          }
+          manifest_ref="${BASH_REMATCH[1]}"
+          test "${GITHUB_SHA:0:12}" = "${BASH_REMATCH[2]}" || {
+            echo "tag-embedded source commit does not match the tagged commit" >&2
+            exit 1
+          }
+          trigger_time="${BASH_REMATCH[3]}-${BASH_REMATCH[4]}-${BASH_REMATCH[5]}T${BASH_REMATCH[6]}:${BASH_REMATCH[7]}:${BASH_REMATCH[8]}Z"
+
+          branch_sha="$(git rev-parse --verify "refs/remotes/origin/${expected_branch}^{commit}")"
+          if [ "$channel" = "stable" ]; then
+            # Prod promotes the commit Stage runs, which must belong to main.
+            git merge-base --is-ancestor "$GITHUB_SHA" "$branch_sha" || {
+              echo "prod releases must promote a commit on $expected_branch" >&2
+              exit 1
+            }
+          else
+            test "$GITHUB_SHA" = "$branch_sha" || {
+              echo "$target_environment releases must use the current $expected_branch head" >&2
+              exit 1
+            }
+          fi
+
+          {
+            echo "target_environment=$target_environment"
+            echo "channel=$channel"
+            echo "manifest_ref=$manifest_ref"
+            echo "source_sha=$GITHUB_SHA"
+            echo "trigger_time=$trigger_time"
+          } >> "$GITHUB_OUTPUT"
+
+  build:
+    needs: resolve
+    if: needs.resolve.outputs.channel != 'stable'
+    name: Build site bundle (${{ needs.resolve.outputs.target_environment }})
+    runs-on: ubuntu-latest
+    environment: ${{ needs.resolve.outputs.target_environment }}
+    concurrency:
+      group: hosted-verification-build-${{ needs.resolve.outputs.target_environment }}-${{ needs.resolve.outputs.source_sha }}
+      cancel-in-progress: false
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    env:
+      TARGET_ENVIRONMENT: ${{ needs.resolve.outputs.target_environment }}
+      CONFIG_REPOSITORY: ${{ secrets.DEPLOYMENT_CONFIG_REPOSITORY }}
+      CONFIG_PATH: hosted-verification/environments/${{ needs.resolve.outputs.target_environment }}.json
+      CONTRACT: .github/hosted-verification-release-contract.json
+    steps:
+      - name: Check out source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.resolve.outputs.source_sha }}
+          persist-credentials: false
+
+      # Scoped to the private manifest repository and revoked after the job.
+      - name: Create manifest-reader GitHub App token
+        id: manifest_token
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        with:
+          app-id: ${{ secrets.IAC_MANIFEST_APP_ID }}
+          private-key: ${{ secrets.IAC_MANIFEST_APP_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+          repositories: ${{ secrets.DEPLOYMENT_CONFIG_REPOSITORY_NAME }}
+          permission-contents: read
+
+      - name: Check out deployment manifest
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: ${{ env.CONFIG_REPOSITORY }}
+          ref: ${{ needs.resolve.outputs.manifest_ref }}
+          token: ${{ steps.manifest_token.outputs.token }}
+          path: deployment-config
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Validate deployment manifest and read the build values
+        shell: bash
+        run: |
+          set -euo pipefail
+          manifest="deployment-config/$CONFIG_PATH"
+          git -C deployment-config merge-base --is-ancestor HEAD origin/main || {
+            echo "the manifest commit is not on the reviewed manifest main branch" >&2
+            exit 1
+          }
+          # Ledger updates are expected; any other change since the trigger must be redeployed.
+          test "$(jq -cS 'del(.release.deployed)' "$manifest")" = \
+            "$(git -C deployment-config show "origin/main:$CONFIG_PATH" | jq -cS 'del(.release.deployed)')" || {
+            echo "the manifest changed after the release was triggered; run make deploy-$TARGET_ENVIRONMENT again" >&2
+            exit 1
+          }
+          sh .github/scripts/validate-deployment-manifest.sh "$CONTRACT" "$TARGET_ENVIRONMENT" "$manifest"
+          # The validator allows only NEXT_PUBLIC_* names and single-line printable values,
+          # so these lines cannot add anything else to the environment.
+          jq -r '.deployment.build_values | to_entries[] | "\(.key)=\(.value)"' "$manifest" >> "$GITHUB_ENV"
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run lint
+      - run: npx tsc --noEmit
+      - run: npm run build
+        env:
+          NEXT_TELEMETRY_DISABLED: 1
+      - run: npm run check:csp
+        env:
+          CHROME_PATH: /usr/bin/google-chrome
+
+      - name: Pack the site bundle
+        shell: bash
+        run: |
+          set -euo pipefail
+          sha="$(sh .github/scripts/package-artifact.sh out "$RUNNER_TEMP/bundle" "$(jq -r '.release.artifact' "$CONTRACT")")"
+          echo "Bundle checksum: $sha"
+
+      - name: Keep the site bundle for the deploy job
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: hosted-verification-bundle
+          path: ${{ runner.temp }}/bundle
+          retention-days: 7
+          if-no-files-found: error
+
+  deploy:
+    needs: [resolve, build]
+    if: >-
+      !cancelled() && needs.resolve.result == 'success' &&
+      (needs.build.result == 'success' || (needs.build.result == 'skipped' && needs.resolve.outputs.channel == 'stable'))
+    name: Deploy (${{ needs.resolve.outputs.target_environment }})
+    runs-on: ubuntu-latest
+    environment: ${{ needs.resolve.outputs.target_environment }}
+    concurrency:
+      group: hosted-verification-${{ needs.resolve.outputs.target_environment }}
+      cancel-in-progress: false
+      queue: max
+    timeout-minutes: 30
+    permissions:
+      checks: read
+      contents: read
+      id-token: write
+    env:
+      TARGET_ENVIRONMENT: ${{ needs.resolve.outputs.target_environment }}
+      CHANNEL: ${{ needs.resolve.outputs.channel }}
+      MANIFEST_REF: ${{ needs.resolve.outputs.manifest_ref }}
+      TRIGGER_TIME: ${{ needs.resolve.outputs.trigger_time }}
+      CONFIG_REPOSITORY: ${{ secrets.DEPLOYMENT_CONFIG_REPOSITORY }}
+      CONFIG_PATH: hosted-verification/environments/${{ needs.resolve.outputs.target_environment }}.json
+      CONTRACT: .github/hosted-verification-release-contract.json
+    steps:
+      - name: Check out source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.resolve.outputs.source_sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Require successful CI for the exact source commit
+        shell: sh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -eu
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          sh .github/scripts/wait-for-ci.sh "$GITHUB_REPOSITORY" "$GITHUB_SHA" "$CONTRACT"
+
+      - name: Create manifest-reader GitHub App token
+        id: manifest_token
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        with:
+          app-id: ${{ secrets.IAC_MANIFEST_APP_ID }}
+          private-key: ${{ secrets.IAC_MANIFEST_APP_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+          repositories: ${{ secrets.DEPLOYMENT_CONFIG_REPOSITORY_NAME }}
+          permission-contents: read
+
+      - name: Check out deployment manifest
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: ${{ env.CONFIG_REPOSITORY }}
+          ref: ${{ needs.resolve.outputs.manifest_ref }}
+          token: ${{ steps.manifest_token.outputs.token }}
+          path: deployment-config
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Validate deployment manifest
+        shell: bash
+        run: |
+          set -euo pipefail
+          manifest="deployment-config/$CONFIG_PATH"
+          git -C deployment-config merge-base --is-ancestor HEAD origin/main || {
+            echo "the manifest commit is not on the reviewed manifest main branch" >&2
+            exit 1
+          }
+          # Ledger updates are expected; any other change since the trigger must be redeployed.
+          test "$(jq -cS 'del(.release.deployed)' "$manifest")" = \
+            "$(git -C deployment-config show "origin/main:$CONFIG_PATH" | jq -cS 'del(.release.deployed)')" || {
+            echo "the manifest changed after the release was triggered; run make deploy-$TARGET_ENVIRONMENT again" >&2
+            exit 1
+          }
+          sh .github/scripts/validate-deployment-manifest.sh "$CONTRACT" "$TARGET_ENVIRONMENT" "$manifest"
+
+          # The bucket and site are masked in these public logs and checked in release notes.
+          bucket="$(jq -r '.deployment.bucket' "$manifest")"
+          site_url="$(jq -r '.deployment.site_url' "$manifest")"
+          site_host="${site_url#https://}"
+          region="$(jq -r '.deployment.aws_region' "$manifest")"
+          private_names="$RUNNER_TEMP/private-names"
+          printf '%s\n' "$bucket" "$site_host" "$region" > "$private_names"
+          for private_name in "$bucket" "$site_url" "$site_host"; do
+            echo "::add-mask::$private_name"
+          done
+
+          if [ "$CHANNEL" = "stable" ]; then
+            source_environment="$(jq -er '.environments.prod.promote_from' "$CONTRACT")"
+            source_manifest="$RUNNER_TEMP/source-manifest.json"
+            # The newest Stage ledger is the promotion source, not the trigger's snapshot.
+            git -C deployment-config show "origin/main:hosted-verification/environments/${source_environment}.json" > "$source_manifest"
+            sh .github/scripts/validate-deployment-manifest.sh "$CONTRACT" "$source_environment" "$source_manifest"
+            echo "SOURCE_MANIFEST=$source_manifest" >> "$GITHUB_ENV"
+          fi
+
+          {
+            echo "MANIFEST=$manifest"
+            echo "PRIVATE_NAMES_FILE=$private_names"
+            echo "BUCKET=$bucket"
+            echo "SITE_URL=$site_url"
+            echo "DEPLOY_AWS_REGION=$region"
+            echo "MANIFEST_COMMIT=$(git -C deployment-config rev-parse HEAD)"
+            echo "ARTIFACT=$(jq -r '.release.artifact' "$CONTRACT")"
+            echo "BUNDLE_DIR=$RUNNER_TEMP/bundle"
+          } >> "$GITHUB_ENV"
+
+      - name: Download the bundle built by this run
+        if: needs.resolve.outputs.channel != 'stable'
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: hosted-verification-bundle
+          path: ${{ runner.temp }}/bundle
+
+      - name: Resolve release version
+        id: version
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          if [ "$CHANNEL" = "stable" ]; then
+            jq -e --arg sha "$GITHUB_SHA" '
+              .release.deployed | type == "object" and .commit == $sha and
+              (.github_release | type == "string") and
+              (.artifact_sha256 | test("^[0-9a-f]{64}$"))' "$SOURCE_MANIFEST" >/dev/null || {
+              echo "Stage has no automated release of this commit to promote; run make deploy-prod again" >&2
+              exit 1
+            }
+            requested="$(jq -r '.release.deployed.github_release' "$SOURCE_MANIFEST")"
+            source_release="$(gh api "repos/$GITHUB_REPOSITORY/releases/tags/$requested")"
+            jq -e --arg sha "$GITHUB_SHA" '.draft == false and .prerelease == true and .target_commitish == $sha' \
+              <<<"$source_release" >/dev/null || {
+              echo "the Stage release candidate is not a published pre-release of this commit" >&2
+              exit 1
+            }
+            echo "PROMOTED_FROM=$requested" >> "$GITHUB_ENV"
+          else
+            requested="$(jq -r '.release.next_version' "$MANIFEST")"
+          fi
+          gh api --paginate "repos/$GITHUB_REPOSITORY/releases?per_page=100" > "$RUNNER_TEMP/releases.json"
+          sh .github/scripts/resolve-release-version.sh "$CONTRACT" "$TARGET_ENVIRONMENT" "$requested" \
+            "$RUNNER_TEMP/releases.json" "$GITHUB_SHA" "$TRIGGER_TIME" > "$RUNNER_TEMP/version.env"
+          cat "$RUNNER_TEMP/version.env"
+          cat "$RUNNER_TEMP/version.env" >> "$GITHUB_OUTPUT"
+
+      # Prod never builds: it takes Stage's bundle from the Stage release and checks it
+      # against the checksum recorded in the private ledger.
+      - name: Verify the bundle to deploy
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          if [ "$CHANNEL" = "stable" ]; then
+            mkdir -p "$BUNDLE_DIR"
+            gh release download "$PROMOTED_FROM" --repo "$GITHUB_REPOSITORY" --dir "$BUNDLE_DIR" \
+              --pattern "$ARTIFACT" --pattern "$ARTIFACT.sha256"
+            expected="$(jq -r '.release.deployed.artifact_sha256' "$SOURCE_MANIFEST")"
+            sha="$(sh .github/scripts/verify-artifact.sh "$BUNDLE_DIR" "$ARTIFACT" "$expected")"
+          else
+            sha="$(sh .github/scripts/verify-artifact.sh "$BUNDLE_DIR" "$ARTIFACT")"
+          fi
+          echo "ARTIFACT_SHA256=$sha" >> "$GITHUB_ENV"
+          mkdir -p "$RUNNER_TEMP/site"
+          tar -xzf "$BUNDLE_DIR/$ARTIFACT" -C "$RUNNER_TEMP/site" --no-same-owner
+          test -f "$RUNNER_TEMP/site/index.html"
+          test ! -e "$RUNNER_TEMP/site/config.json" || {
+            echo "the bundle must not contain config.json; it belongs to the environment" >&2
+            exit 1
+          }
+
+      # The notes are built and checked before anything in AWS changes, so a
+      # rejected note can never leave an environment deployed without a release.
+      # App tokens expire after an hour, so publishing mints a fresh one later.
+      - name: Create release-notes GitHub App token
+        id: notes_token
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        with:
+          app-id: ${{ secrets.RELEASE_PUBLISHER_APP_ID }}
+          private-key: ${{ secrets.RELEASE_PUBLISHER_APP_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+          repositories: ${{ github.event.repository.name }}
+          permission-contents: write
+
+      - name: Prepare and check release notes
+        shell: bash
+        env:
+          GH_TOKEN: ${{ steps.notes_token.outputs.token }}
+          REPOSITORY: ${{ github.repository }}
+          RELEASE_TAG: ${{ steps.version.outputs.release_tag }}
+          PREVIOUS_TAG: ${{ steps.version.outputs.previous_tag }}
+          VERSION: ${{ steps.version.outputs.version }}
+          REUSE: ${{ steps.version.outputs.reuse }}
+          SOURCE_SHA: ${{ needs.resolve.outputs.source_sha }}
+        run: |
+          set -euo pipefail
+          echo "NOTES_FILE=$RUNNER_TEMP/release-notes.md" >> "$GITHUB_ENV"
+          NOTES_FILE="$RUNNER_TEMP/release-notes.md" TITLE="$(jq -r '.release.title' "$CONTRACT")" \
+            bash .github/scripts/publish-github-release.sh prepare
+
+      - name: Configure AWS credentials through GitHub OIDC
+        uses: aws-actions/configure-aws-credentials@e6de054238d6b7531b4efff3b6587d9aade6a06c # v6.2.3
+        with:
+          role-to-assume: ${{ secrets.AWS_HOSTED_VERIFICATION_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ env.DEPLOY_AWS_REGION }}
+
+      - name: Verify assumed AWS account
+        shell: bash
+        env:
+          EXPECTED_AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID }}
+        run: |
+          set -euo pipefail
+          test "$(aws sts get-caller-identity --query Account --output text)" = "$EXPECTED_AWS_ACCOUNT_ID"
+
+      # Order matters: the new HTML is the last thing uploaded, and it only refers to files that are already there.
+      # Nothing is deleted, so pages that are still open keep their old hashed files. config.json is never
+      # uploaded here: it belongs to the environment (ndi-iac-tf), and the deploy role is denied writing it.
+      - name: Upload hashed assets
+        shell: bash
+        run: |
+          set -euo pipefail
+          aws s3 cp "$RUNNER_TEMP/site/_next/static" "s3://$BUCKET/_next/static" --recursive \
+            --cache-control "public, max-age=31536000, immutable"
+      - name: Upload other files
+        shell: bash
+        run: |
+          set -euo pipefail
+          aws s3 sync "$RUNNER_TEMP/site" "s3://$BUCKET" \
+            --exclude "_next/static/*" --exclude "*.html" --exclude "config.json" \
+            --cache-control "public, max-age=3600"
+      - name: Upload HTML
+        shell: bash
+        run: |
+          set -euo pipefail
+          aws s3 sync "$RUNNER_TEMP/site" "s3://$BUCKET" \
+            --exclude "*" --include "*.html" \
+            --cache-control "no-store"
+
+      - name: Smoke test
+        shell: bash
+        run: |
+          set -euo pipefail
+          page="$(curl -fsS "$SITE_URL/v/smoke-test")"
+          grep -q 'http-equiv="Content-Security-Policy"' <<<"$page"
+          curl -fsSI "$SITE_URL/v/smoke-test" | grep -qi '^x-frame-options: deny'
+          curl -fsS "$SITE_URL/config.json" | jq -e '.platformApiUrl | startswith("https://")' >/dev/null
+
+      - name: Create release-publisher GitHub App token
+        id: release_token
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        with:
+          app-id: ${{ secrets.RELEASE_PUBLISHER_APP_ID }}
+          private-key: ${{ secrets.RELEASE_PUBLISHER_APP_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+          repositories: ${{ github.event.repository.name }}
+          permission-contents: write
+
+      - name: Publish GitHub Release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ steps.release_token.outputs.token }}
+          REPOSITORY: ${{ github.repository }}
+          RELEASE_TAG: ${{ steps.version.outputs.release_tag }}
+          PREVIOUS_TAG: ${{ steps.version.outputs.previous_tag }}
+          VERSION: ${{ steps.version.outputs.version }}
+          REUSE: ${{ steps.version.outputs.reuse }}
+          SOURCE_SHA: ${{ needs.resolve.outputs.source_sha }}
+        run: |
+          set -euo pipefail
+          TITLE="$(jq -r '.release.title' "$CONTRACT")" bash .github/scripts/publish-github-release.sh publish
+
+      - name: Create manifest-writer GitHub App token
+        id: manifest_writer_token
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        with:
+          app-id: ${{ secrets.IAC_MANIFEST_WRITER_APP_ID }}
+          private-key: ${{ secrets.IAC_MANIFEST_WRITER_APP_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+          repositories: ${{ secrets.DEPLOYMENT_CONFIG_REPOSITORY_NAME }}
+          permission-contents: write
+
+      - name: Record the deployment in the private ledger
+        shell: bash
+        env:
+          GH_TOKEN: ${{ steps.manifest_writer_token.outputs.token }}
+          RELEASE_TAG: ${{ steps.version.outputs.release_tag }}
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          set -euo pipefail
+          jq -n \
+            --arg version "$VERSION" \
+            --arg github_release "$RELEASE_TAG" \
+            --arg artifact_sha256 "$ARTIFACT_SHA256" \
+            --arg commit "$GITHUB_SHA" \
+            --arg manifest_commit "$MANIFEST_COMMIT" \
+            --arg promoted_from "${PROMOTED_FROM:-}" \
+            --arg workflow_run "${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}" \
+            --arg deployed_at "$(date -u +%Y-%m-%dT%H:%M:%SZ)" '{
+              version: $version, github_release: $github_release, artifact_sha256: $artifact_sha256,
+              commit: $commit, manifest_commit: $manifest_commit,
+              promoted_from: (if $promoted_from == "" then null else $promoted_from end),
+              workflow_run: $workflow_run, deployed_at: $deployed_at
+            }' > "$RUNNER_TEMP/deployed.json"
+          VALIDATED_MANIFEST="$MANIFEST" DEPLOYED_RECORD="$RUNNER_TEMP/deployed.json" \
+            ENVIRONMENT="$TARGET_ENVIRONMENT" bash .github/scripts/record-deployment.sh
+
+      - name: Summarize
+        shell: bash
+        env:
+          RELEASE_TAG: ${{ steps.version.outputs.release_tag }}
+        run: |
+          printf '### Hosted verification %s deployed\n\nRelease: %s/%s/releases/tag/%s\n' \
+            "$TARGET_ENVIRONMENT" "$GITHUB_SERVER_URL" "$GITHUB_REPOSITORY" "$RELEASE_TAG" >> "$GITHUB_STEP_SUMMARY"
