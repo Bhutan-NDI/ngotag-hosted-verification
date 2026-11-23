@@ -1,9 +1,11 @@
-# Bhutan NDI hosted verification page
+# Ngotag hosted verification
 
 One NDI-owned page for the QR code and the "Open Bhutan NDI" button, reused by every relying party (HVP-SD).
 A relying party's backend creates a proof request with a `redirectUri`. The platform returns `hostedPageUrl` (`/v/<hostedId>`). The browser comes here, the user approves in the wallet, and the browser goes back to the relying party with a single-use `response_code`.
 
 Next.js 15 (App Router, static export), TypeScript, Tailwind CSS v4. Light theme only. English and Dzongkha.
+
+References such as DL-007, HVP-SD §5.6 or UXD-10 point to NDI's internal design documents (the decision log, the solution design and the UX specification), which are not public. The behaviour they describe is summarised below.
 
 ## How it works
 
@@ -136,6 +138,16 @@ To try the production build locally: `npm run build && npm run serve` serves `ou
 - `public/QRlogo.svg`: round badge for the centre of the QR code (875 KB source). The page uses `public/qr-logo.png`, a 192px export (about 20 KB); re-export it if the SVG changes.
 - `public/badges/`: official Google Play and App Store badges (don't alter them)
 - `src/fonts/noto-serif-tibetan.woff2`: Noto Serif Tibetan (SIL OFL), Tibetan subset, for Dzongkha
+
+## Licence
+
+The code is licensed under the [Apache License 2.0](LICENSE). See [CONTRIBUTING.md](CONTRIBUTING.md) to contribute, and [SECURITY.md](SECURITY.md) to report a vulnerability.
+
+The licence does not cover:
+
+- **the Bhutan NDI name, logos and icons**, including `public/center-icon.png`, `public/ndi-mark-mint.png`, `public/ndi-studio-on-light.svg`, `public/QRlogo.svg`, `public/qr-logo.png`, `public/figma/ndi-mark.png`, `public/figma/scan-button.png` and `src/app/favicon.ico`. They identify Bhutan NDI and may not be used to suggest endorsement or to imitate the service.
+- **the Noto Serif Tibetan font** (`src/fonts/noto-serif-tibetan.woff2`), under the SIL Open Font License 1.1;
+- **the store badges** (`public/badges/`), under Google's and Apple's badge guidelines.
 
 ## Before launch
 
