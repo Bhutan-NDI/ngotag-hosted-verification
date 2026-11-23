@@ -1,9 +1,27 @@
-# Bhutan NDI hosted verification page
+# Ngotag hosted verification
 
 One NDI-owned page for the QR code and the "Open Bhutan NDI" button, reused by every relying party (HVP-SD).
 A relying party's backend creates a proof request with a `redirectUri`. The platform returns `hostedPageUrl` (`/v/<hostedId>`). The browser comes here, the user approves in the wallet, and the browser goes back to the relying party with a single-use `response_code`.
 
 Next.js 15 (App Router, static export), TypeScript, Tailwind CSS v4. Light theme only. English and Dzongkha.
+
+References such as DL-007, HVP-SD §5.6 or UXD-10 point to NDI's internal design documents (the decision log, the solution design and the UX specification), which are not public. The behaviour they describe is summarised below.
+
+### Glossary
+
+| Term | Meaning |
+|---|---|
+| **DL-xxx** | An entry in NDI's decision log for hosted verification, e.g. DL-007 "after the deep link, the page doesn't redirect" |
+| **HVP-SD §x** | A section of the hosted verification solution design (the platform and page contract) |
+| **UXD-xx** | An item in the UX specification for the page's screens |
+| **AC n** | Acceptance criterion n of the hosted verification work |
+| **Relying party** | The service (e.g. a government portal) that asks the citizen to verify with Bhutan NDI |
+| **`hostedId`** | The opaque, random id in the page URL (`/v/<hostedId>`); the only input the page reads from its URL |
+| **Proof request** | The relying party's request for credentials, created on the NDI platform; shown as a QR code or opened through a deep link |
+| **Deep link** | The link that opens the Bhutan NDI wallet on the same phone ("Continue") |
+| **`response_code`** | The single-use code the citizen brings back to the relying party, which exchanges it with the platform for the result |
+| **`returnUrl`** | `redirectUri?response_code=…`: where the citizen goes back to once the proof has an outcome |
+| **`redirectUri`** | The relying party's registered return address; without a code the page adds `error=<reason>` |
 
 ## How it works
 
@@ -132,10 +150,23 @@ To try the production build locally: `npm run build && npm run serve` serves `ou
 
 ## Assets
 
-- `public/center-icon.png`: app icon above the title
-- `public/QRlogo.svg`: round badge for the centre of the QR code (875 KB source). The page uses `public/qr-logo.png`, a 192px export (about 20 KB); re-export it if the SVG changes.
+- `public/figma/ndi-mark.png`: app mark on the dark tile above the title
+- `public/qr-logo.png`: round badge in the centre of the QR code, a 192px export (about 20 KB) of NDI's QR logo. The source artwork is not in the current tree (an earlier commit still contains it).
+- `public/figma/*.svg`: generic UI icons (arrows, chevrons, status icons, spinner) exported from NDI's own Figma design for this page. They carry no third-party terms.
 - `public/badges/`: official Google Play and App Store badges (don't alter them)
 - `src/fonts/noto-serif-tibetan.woff2`: Noto Serif Tibetan (SIL OFL), Tibetan subset, for Dzongkha
+
+## Licence
+
+Copyright 2026 Bhutan NDI. The code is licensed under the [Apache License 2.0](LICENSE); see also [NOTICE](NOTICE). See [CONTRIBUTING.md](CONTRIBUTING.md) to contribute, and [SECURITY.md](SECURITY.md) to report a vulnerability.
+
+The licence does not cover:
+
+- **the Bhutan NDI name, logos and icons**, including `public/figma/ndi-mark.png`, `public/figma/scan-button.png`, `public/qr-logo.png`, `public/ndi-mark-mint.png` and `src/app/favicon.ico`. The current tree has only the files the page needs; earlier commits also contain unused NDI artwork (such as the QR logo source), which is covered by the same exclusion. They identify Bhutan NDI and may not be used to suggest endorsement or to imitate the service.
+- **the Noto Serif Tibetan font** (`src/fonts/noto-serif-tibetan.woff2`), under the SIL Open Font License 1.1;
+- **the store badges** (`public/badges/`), under Google's and Apple's badge guidelines.
+
+The generic UI icons in `public/figma/*.svg` are part of this project's design and are covered by the licence like the code.
 
 ## Before launch
 
