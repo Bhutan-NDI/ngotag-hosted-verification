@@ -148,6 +148,8 @@ To try the production build locally: `npm run build && npm run serve` serves `ou
 
 **Monitoring** (AC 10): a synthetic check every minute that loads `/v/<test id>` and calls the platform's status endpoint, with alerts. It replaces the old `/api/health`.
 
+**On AWS:** the hosting (S3 and CloudFront, with the CDN rules above, `config.json` and the deploy role) is managed in the private `ndi-iac-tf` repository, and the per-environment deploy values and the release ledger in the private `ndi-tf-manifests` repository, both under `hosted-verification`. Releases follow the pattern of the other NGOTAG services ([docs/release-automation.md](docs/release-automation.md)): they start only with `make deploy-qa`, `make deploy-stage` or `make deploy-prod` from the clean, up-to-date `develop` (QA) or `main` (Stage and Prod), with `DEPLOYMENT_CONFIG_REPOSITORY=Bhutan-NDI/ndi-tf-manifests`. Prod never rebuilds: it promotes the exact bundle Stage runs, so build-time values must be the same in Stage and Prod, and anything that differs per environment belongs in `config.json`. `make release-check` runs the checks that CI runs on the release automation.
+
 ## Assets
 
 - `public/figma/ndi-mark.png`: app mark on the dark tile above the title

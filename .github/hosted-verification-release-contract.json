@@ -1,0 +1,30 @@
+{
+  "schema_version": 1,
+  "release": {
+    "title": "Bhutan NDI hosted verification page",
+    "tag_prefix": "hosted-verification/v",
+    "artifact": "hosted-verification-out.tar.gz"
+  },
+  "environments": {
+    "qa": {
+      "allowed_branch": "develop",
+      "tag_prefix": "hosted-verification-qa-",
+      "channel": "qa"
+    },
+    "stage": {
+      "allowed_branch": "main",
+      "tag_prefix": "hosted-verification-stage-",
+      "channel": "rc"
+    },
+    "prod": {
+      "allowed_branch": "main",
+      "tag_prefix": "hosted-verification-prod-",
+      "channel": "stable",
+      "promote_from": "stage"
+    }
+  },
+  "ci": {
+    "check_name": "build",
+    "app_slug": "github-actions"
+  }
+}
