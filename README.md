@@ -164,7 +164,7 @@ Copyright 2026 Bhutan NDI. The code is licensed under the [Apache License 2.0](L
 
 The licence does not cover:
 
-- **the Bhutan NDI name, logos and icons**, including `public/figma/ndi-mark.png`, `public/figma/scan-button.png`, `public/qr-logo.png`, `public/ndi-mark-mint.png` and `src/app/favicon.ico`. The current tree has only the files the page needs; earlier commits also contain unused NDI artwork (such as the QR logo source), which is covered by the same exclusion. They identify Bhutan NDI and may not be used to suggest endorsement or to imitate the service.
+- **the Bhutan NDI name, logos and icons**, including `public/figma/ndi-mark.png`, `public/figma/scan-button.png`, `public/qr-logo.png` and `src/app/favicon.ico`. The current tree has only the files the page needs; earlier commits also contain unused NDI artwork (such as the QR logo source), which is covered by the same exclusion. They identify Bhutan NDI and may not be used to suggest endorsement or to imitate the service.
 - **the Noto Serif Tibetan font** (`src/fonts/noto-serif-tibetan.woff2`), under the SIL Open Font License 1.1;
 - **the store badges** (`public/badges/`), under Google's and Apple's badge guidelines.
 
