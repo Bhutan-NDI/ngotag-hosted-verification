@@ -10,7 +10,7 @@ trap 'rm -rf "$work"' EXIT HUP INT TERM
 name=hosted-verification-out.tar.gz
 
 mkdir -p "$work/out/_next/static/chunks" "$work/out/v"
-echo '<html></html>' > "$work/out/index.html"
+echo '<html></html>' > "$work/out/404.html"
 echo 'x' > "$work/out/v/_.html"
 echo 'console.log(1)' > "$work/out/_next/static/chunks/a.js"
 
