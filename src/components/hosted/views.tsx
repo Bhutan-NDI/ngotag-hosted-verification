@@ -181,8 +181,6 @@ function MobileConnect({ view, session, onOpenWallet, onShowQr, onHideQr }: Stat
         <QrToggle expanded={false} onClick={onShowQr} />
       )}
 
-      <CancelLink session={session} />
-
       <Divider className={qrOpen ? "mt-2" : undefined} />
       <MobileFooter />
     </ConnectCard>
@@ -196,26 +194,38 @@ function WebScan({ view, session, onOpenWallet }: StateViewProps) {
   return (
     <ConnectCard mode="web">
       <TitleStack title={t.scanTitle} session={session} showReturn={!scanned} />
-      <QrFrame session={session} scanned={scanned} />
-      <div className="flex w-full flex-col items-center gap-3">
-        <ScanSteps size="lg" />
-        {/*
-          Not in the Figma frame: kept so a wrong device guess is never a dead end
-          (HVP-SD §5.6). Remove if product confirms desktop never needs it.
-        */}
-        {!scanned && session?.deepLinkURL && (
-          <button
-            type="button"
-            onClick={onOpenWallet}
-            className="rounded text-sm font-medium text-muted underline-offset-4 hover:text-ink hover:underline focus-visible:outline-2 focus-visible:outline-primary"
-          >
-            {t.openOnThisPhone}
-          </button>
-        )}
-        <CancelLink session={session} />
+      <div className="flex flex-col items-center gap-3">
+        <QrFrame session={session} scanned={scanned} />
+        {/* The other path, so a wrong device guess is never a dead end (HVP-SD §5.6). */}
+        {session?.deepLinkURL && <OpenOnThisDevice disabled={scanned} onClick={onOpenWallet} />}
       </div>
+      <ScanSteps size="lg" />
       <WebFooter />
     </ConnectCard>
+  );
+}
+
+/**
+ * "Using this phone or tablet? / Open Bhutan NDI" under the QR frame (Figma 3w). Greyed out and
+ * disabled once the wallet has scanned, like the phone's Continue button (Figma 9w).
+ */
+function OpenOnThisDevice({ disabled, onClick }: { disabled: boolean; onClick?: () => void }) {
+  const { t } = useI18n();
+  return (
+    <div className="flex flex-col items-center text-center text-[15px] leading-[22px]">
+      <p className={disabled ? "text-disabled" : "text-muted"}>{t.usingThisDevice}</p>
+      <button
+        type="button"
+        onClick={onClick}
+        disabled={disabled}
+        className={cx(
+          "rounded font-semibold focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary",
+          disabled ? "cursor-not-allowed text-disabled" : "text-brand underline-offset-4 hover:underline",
+        )}
+      >
+        {t.openNdi}
+      </button>
+    </div>
   );
 }
 
@@ -269,7 +279,10 @@ function BackButton({ session, reason, label }: { session?: PublicSession; reaso
   );
 }
 
-/** "Cancel and return to <host>" on the pending screens: `error=cancelled` (DL-019(2)). */
+/**
+ * "Cancel and return to <host>" while waiting after the deep link: `error=cancelled` (DL-019(2)).
+ * Not on the Ready, QR or Scanned screens, which have no cancel link in Figma.
+ */
 function CancelLink({ session }: { session?: PublicSession }) {
   const { t } = useI18n();
   if (!session) return null;
@@ -330,6 +343,7 @@ export function StateView(props: StateViewProps) {
           body={<Fmt text={t.returnedBody} values={{ host }} />}
         >
           <BackButton session={session} reason="unavailable" />
+          <p className="-mt-2 text-[13px] leading-[18px] text-muted">{t.closeTab}</p>
         </Status>
       );
 

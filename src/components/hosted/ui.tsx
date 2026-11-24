@@ -108,7 +108,7 @@ export function NdiMark() {
 }
 
 export function BrandName() {
-  return <span className="text-mint">Bhutan NDI</span>;
+  return <span className="text-brand">Bhutan NDI</span>;
 }
 
 /** EN | རྫོང་ཁ segmented switch, top-right of the card. Hidden when ENABLE_LANGUAGE_TOGGLE=false. */
@@ -187,7 +187,7 @@ export function PrimaryLink({ children, className, ...rest }: ButtonBase & Compo
   );
 }
 
-/** "Use QR code instead" / "Hide QR code" (Figma: mint, chevron; grey when disabled). */
+/** "Use QR code instead" / "Hide QR code" (Figma: brand green, chevron; grey when disabled). */
 export function QrToggle({
   expanded,
   disabled,
@@ -207,7 +207,7 @@ export function QrToggle({
       className={cx(
         "relative left-2 inline-flex items-center gap-1.5 rounded-lg px-4 py-3 text-[15px] font-semibold",
         focusRing,
-        disabled ? "text-disabled" : "text-mint hover:underline hover:underline-offset-4",
+        disabled ? "text-disabled" : "text-brand hover:underline hover:underline-offset-4",
       )}
     >
       {expanded ? t.hideQr : t.useQr}
@@ -240,7 +240,7 @@ export function ScanSteps({ size = "sm" }: { size?: "sm" | "lg" }) {
     <ol
       className={cx(
         "list-decimal space-y-1.5 pl-4 text-left text-muted marker:text-muted",
-        size === "lg" ? "w-full max-w-[324px] text-[15px] leading-[22px]" : "w-full max-w-[296px] text-sm leading-[20px]",
+        size === "lg" ? "w-fit max-w-full text-[15px] leading-[22px]" : "w-full max-w-[296px] text-sm leading-[20px]",
       )}
     >
       <li>{t.stepOpenWallet}</li>
@@ -287,7 +287,7 @@ function NoAppLine({ className }: { className?: string }) {
         text={t.noApp}
         values={{
           download: (
-            <a href={store} {...external} className={cx("rounded font-semibold text-mint hover:underline", focusRing)}>
+            <a href={store} {...external} className={cx("rounded font-semibold text-brand hover:underline", focusRing)}>
               {t.downloadNow}
             </a>
           ),
@@ -431,7 +431,7 @@ export function WebFooter() {
       </div>
       {HAS_CONTACT && (
         <div className="flex flex-col items-center gap-[15px] text-[15px] text-muted">
-          <p className="font-semibold text-label">{t.support}</p>
+          <p className="font-semibold text-brand">{t.support}</p>
           <div className="flex flex-wrap items-center justify-center gap-x-5">
             <Email icon={20} />
             <Phone icon={20} />
