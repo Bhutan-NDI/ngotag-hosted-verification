@@ -73,7 +73,7 @@ npm install
 npm run dev          # http://localhost:3000 (use -- -p 3001 if 3000 is taken)
 ```
 
-In `next dev`, `/config.json` is served from [config.dev.json](config.dev.json); `npm run serve` uses it too. The build carries no `config.json`: each environment deploys its own. Point `platformApiUrl` at a running platform api-gateway (ngotag-platform with the hosted-session and scanned changes):
+In `next dev`, `/config.json` is served from [config.dev.json](config.dev.json); `npm run serve` uses it too. The build carries no `config.json`: each environment deploys its own. Point `platformApiUrl` at a running platform api-gateway (ngotag-platform with the hosted-session and scanned changes). In `next dev` the page calls it through the same-origin path `/__platform`, which Next forwards there, so a deployed platform that allows only its own hosted-page origin (CORS) works from localhost too. Restart `next dev` after changing it:
 
 ```json
 { "platformApiUrl": "http://localhost:5000", "languageToggle": true }
