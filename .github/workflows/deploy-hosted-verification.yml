@@ -366,7 +366,7 @@ jobs:
           echo "ARTIFACT_SHA256=$sha" >> "$GITHUB_ENV"
           mkdir -p "$RUNNER_TEMP/site"
           tar -xzf "$BUNDLE_DIR/$ARTIFACT" -C "$RUNNER_TEMP/site" --no-same-owner
-          test -f "$RUNNER_TEMP/site/index.html"
+          test -f "$RUNNER_TEMP/site/v/_.html" && test -f "$RUNNER_TEMP/site/404.html"
           test ! -e "$RUNNER_TEMP/site/config.json" || {
             echo "the bundle must not contain config.json; it belongs to the environment" >&2
             exit 1

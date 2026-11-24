@@ -15,7 +15,7 @@ site=$1
 destination=$2
 name=$3
 
-test -f "$site/index.html" || { echo "$site is not a built site (no index.html)" >&2; exit 1; }
+test -f "$site/v/_.html" && test -f "$site/404.html" || { echo "$site is not a built site (needs v/_.html and 404.html)" >&2; exit 1; }
 mkdir -p "$destination"
 tar -C "$site" -czf "$destination/$name" .
 
