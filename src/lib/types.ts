@@ -1,7 +1,8 @@
 /**
  * Status reported by `GET /verification/hosted/:hostedId/status` (HVP-SD §5.3).
  * `scanned` (DL-016) and `declined` (DL-020) are optional; without them the page goes from
- * `pending` straight to the outcome, and a decline shows as `failed`.
+ * `pending` straight to the outcome, and a decline arrives as `failed`. Until the platform sends
+ * `declined`, the page shows `failed` as the declined screen (src/lib/flow.ts).
  */
 export type HostedStatus = "pending" | "scanned" | "completed" | "declined" | "failed" | "expired";
 
