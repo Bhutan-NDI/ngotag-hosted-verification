@@ -1,17 +1,11 @@
 import type { NextConfig } from "next";
 import { readFileSync } from "node:fs";
 import path from "node:path";
+import { DEV_PLATFORM_PROXY } from "./src/lib/devProxy";
 
 const isDev = process.env.NODE_ENV !== "production";
 
-/**
- * Dev only: the page reaches the platform through this same-origin path, which `next dev` forwards
- * to platformApiUrl in config.dev.json. Deployed platforms allow only their own hosted-page origin
- * (CORS), so without it the browser rejects every reply on localhost. Must match
- * src/app/config.json/route.dev.ts. Restart `next dev` after changing platformApiUrl.
- */
-const DEV_PLATFORM_PROXY = "/__platform";
-
+/** Where the dev proxy forwards to. Read once at startup: restart `next dev` after changing it. */
 function devPlatformTarget(): string {
   const { platformApiUrl } = JSON.parse(readFileSync(path.join(__dirname, "config.dev.json"), "utf8"));
   return String(platformApiUrl).replace(/\/+$/, "");
