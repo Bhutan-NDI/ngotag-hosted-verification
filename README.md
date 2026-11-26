@@ -41,7 +41,6 @@ Behaviour (decision log wins over the solution design):
 - **Scanned** (optional, DL-016): hide the QR code and ask the user to approve in the wallet. If the request expires while scanned, show "You did not approve in time".
 - **Expired:** on the deadline (`expiresAt`, shared with the wallet, judged on server time) or on `expired` from the platform (DL-017). A "Start again at &lt;host&gt;" button only; the page never returns on its own (DL-013). No request duration is shown (UXD-10).
 - **Unknown link:** "This request is no longer available", with no way back: the page never learned the host (DL-013, §6).
-- **Failed:** shown as the declined screen for now, because the platform still reports a decline in the wallet as `failed`. Without a valid code the link still carries `error=failed`. Revert in `src/lib/flow.ts` once the status endpoint returns `declined`.
 - **Every return is a button** with either a valid `returnUrl` or `redirectUri?error=<reason>`, never the bare `redirectUri` (DL-019):
 
   | Screen | Without a valid code |

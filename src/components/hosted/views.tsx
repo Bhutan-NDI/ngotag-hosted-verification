@@ -366,8 +366,7 @@ export function StateView(props: StateViewProps) {
           title={t.declinedTitle}
           body={<Fmt text={t.declinedBody} values={{ host }} />}
         >
-          {/* `failed` also lands here (flow.ts); without a code, tell the relying party what the platform said. */}
-          <BackButton session={session} reason={session?.status === "failed" ? "failed" : "declined"} />
+          <BackButton session={session} reason="declined" />
         </Status>
       );
 

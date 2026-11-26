@@ -133,9 +133,7 @@ export function flowReducer(state: FlowState, action: FlowAction): FlowState {
         case "declined":
           return { ...final, view: "declined" };
         case "failed":
-          // Workaround: the platform still reports a decline in the wallet as `failed` (review K1),
-          // so `failed` shows the declined screen. Back to view "failed" once it returns `declined`.
-          return { ...final, view: "declined" };
+          return { ...final, view: "failed" };
         case "expired":
           return { ...final, view: expiredView({ ...state, view: base }) };
       }
