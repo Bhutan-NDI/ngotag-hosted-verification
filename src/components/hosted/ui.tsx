@@ -187,7 +187,7 @@ export function PrimaryLink({ children, className, ...rest }: ButtonBase & Compo
   );
 }
 
-/** "Use QR code instead" / "Hide QR code" (Figma: mint, chevron; grey when disabled). */
+/** "Use QR code instead" / "Hide QR code" (Figma: brand green, chevron; grey when disabled). */
 export function QrToggle({
   expanded,
   disabled,
@@ -207,7 +207,7 @@ export function QrToggle({
       className={cx(
         "relative left-2 inline-flex items-center gap-1.5 rounded-lg px-4 py-3 text-[15px] font-semibold",
         focusRing,
-        disabled ? "text-disabled" : "text-mint hover:underline hover:underline-offset-4",
+        disabled ? "text-disabled" : "text-brand hover:underline hover:underline-offset-4",
       )}
     >
       {expanded ? t.hideQr : t.useQr}
@@ -240,7 +240,7 @@ export function ScanSteps({ size = "sm" }: { size?: "sm" | "lg" }) {
     <ol
       className={cx(
         "list-decimal space-y-1.5 pl-4 text-left text-muted marker:text-muted",
-        size === "lg" ? "w-full max-w-[324px] text-[15px] leading-[22px]" : "w-full max-w-[296px] text-sm leading-[20px]",
+        size === "lg" ? "w-fit max-w-full text-[15px] leading-[22px]" : "w-full max-w-[296px] text-sm leading-[20px]",
       )}
     >
       <li>{t.stepOpenWallet}</li>
@@ -287,7 +287,7 @@ function NoAppLine({ className }: { className?: string }) {
         text={t.noApp}
         values={{
           download: (
-            <a href={store} {...external} className={cx("rounded font-semibold text-mint hover:underline", focusRing)}>
+            <a href={store} {...external} className={cx("rounded font-semibold text-brand hover:underline", focusRing)}>
               {t.downloadNow}
             </a>
           ),
@@ -330,7 +330,7 @@ function Email({ icon }: { icon: number }) {
 
 /**
  * Phone footer (Figma 3): "Don't have the wallet? Download Now!", then Get Support
- * with video guide, phone · email. Each support item shows only if configured.
+ * with video guide, email · phone. Each support item shows only if configured.
  */
 export function MobileFooter() {
   const { t } = useI18n();
@@ -343,13 +343,13 @@ export function MobileFooter() {
           <VideoGuideLink />
           {HAS_CONTACT && (
             <div className="flex flex-wrap items-center justify-center gap-x-3">
-              <Phone icon={16} />
+              <Email icon={16} />
               {SUPPORT_PHONE && SUPPORT_EMAIL && (
                 <span className="text-dot" aria-hidden>
                   ·
                 </span>
               )}
-              <Email icon={16} />
+              <Phone icon={16} />
             </div>
           )}
         </div>
@@ -367,7 +367,7 @@ function WatchGuideButton() {
       href={VIDEO_GUIDE_URL}
       {...external}
       className={cx(
-        "inline-flex h-10 min-w-[200px] items-center justify-center gap-3 rounded-full border-2 border-mint px-5 text-[15px] font-semibold text-primary hover:bg-mint-soft",
+        "inline-flex h-10 min-w-[200px] items-center justify-center gap-3 rounded-full border-2 border-mint px-5 text-[15px] font-medium text-mint hover:bg-mint-soft",
         focusRing,
       )}
     >

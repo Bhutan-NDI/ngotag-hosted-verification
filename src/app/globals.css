@@ -20,7 +20,8 @@
 
   --color-primary: #124143; /* buttons, active toggle, text links */
   --color-primary-hover: #0d3133;
-  --color-mint: #5ac994; /* "Bhutan NDI", QR link, Download Now!, QR frame */
+  --color-brand: #237a55; /* text accents: QR toggle, Open Bhutan NDI, Download Now! */
+  --color-mint: #5ac994; /* "Bhutan NDI" in titles, web guide pill, QR frame, icons */
   --color-mint-soft: #e3f4ec; /* status icon circles */
   --color-tile: #141b29; /* app icon tile */
 }

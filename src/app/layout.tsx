@@ -31,7 +31,6 @@ export const metadata: Metadata = {
   description: "Verify your identity with the Bhutan NDI Wallet",
   robots: { index: false, follow: false },
   referrer: "no-referrer",
-  icons: { icon: "/ndi-mark-mint.png" },
 };
 
 export const viewport: Viewport = {

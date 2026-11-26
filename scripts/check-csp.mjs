@@ -35,7 +35,8 @@ const chrome = spawn(chromePath, [
 let failed = false;
 try {
   let target;
-  for (let i = 0; i < 100 && !target; i++) {
+  // Up to 30 s: a cold Chrome on a busy CI runner sometimes needs more than 10 s to open its debug port.
+  for (let i = 0; i < 300 && !target; i++) {
     await sleep(100);
     try { target = (await (await fetch(`http://127.0.0.1:${debugPort}/json/list`)).json()).find((t) => t.type === "page"); } catch {}
   }

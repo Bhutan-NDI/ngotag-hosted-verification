@@ -36,7 +36,8 @@ export interface Messages {
   stepTapScan: string;
   scanButtonAlt: string;
   qrTitle: string;
-  openOnThisPhone: string;
+  usingThisDevice: string;
+  openNdi: string;
 
   // Scanned (DL-016) — never "Verifying your details": nothing is approved yet
   scanned: string;
@@ -57,6 +58,7 @@ export interface Messages {
   waitingBody: string;
   returnedTitle: string;
   returnedBody: string;
+  closeTab: string;
 
   // Completed (cross-device)
   doneTitle: string;
@@ -70,7 +72,6 @@ export interface Messages {
   expiredTitle: string;
   expiredBody: string;
   startAgainAt: string;
-  cancelReturn: string;
   timedOutTitle: string;
   timedOutBody: string;
   notFoundTitle: string;
@@ -87,28 +88,29 @@ export interface Messages {
 const en: Messages = {
   languageLabel: "Language",
   langShort: { en: "EN", dz: "རྫོང་ཁ" },
-  logoAlt: "Bhutan NDI Wallet",
+  logoAlt: "Bhutan NDI app",
   returnLine: "You'll return to {host}",
 
-  continueTitle: "Continue with {brand} Wallet",
+  continueTitle: "Continue with the {brand} app",
   continue: "Continue",
-  opening: "Opening Bhutan NDI Wallet…",
-  walletDidNotOpen: "The wallet didn't open.",
+  opening: "Opening the Bhutan NDI app…",
+  walletDidNotOpen: "The app didn't open.",
   tryAgain: "Try again",
   useQr: "Use QR code instead",
   hideQr: "Hide QR code",
 
-  scanTitle: "Scan with {brand} Wallet",
-  stepOpenWallet: "Open Bhutan NDI Wallet on your phone",
+  scanTitle: "Scan with the {brand} app",
+  stepOpenWallet: "Open the Bhutan NDI app on your phone",
   stepTapScan: "Tap the scan button {scan} and scan this QR code",
   scanButtonAlt: "scan",
-  qrTitle: "Scan with Bhutan NDI Wallet",
-  openOnThisPhone: "On this phone? Open the app",
+  qrTitle: "Scan with the Bhutan NDI app",
+  usingThisDevice: "Using this phone or tablet?",
+  openNdi: "Open Bhutan NDI",
 
   scanned: "Scanned",
   scannedBody: "Accept or decline in your Bhutan NDI app.",
 
-  noApp: "Don't have the Bhutan NDI Wallet? {download}",
+  noApp: "Don't have the Bhutan NDI app? {download}",
   downloadNow: "Download Now!",
   getItOnGooglePlay: "Get it on Google Play",
   downloadOnAppStore: "Download on the App Store",
@@ -118,10 +120,11 @@ const en: Messages = {
   loadingTitle: "Just a moment",
   loadingBody: "Preparing your request.",
 
-  waitingTitle: "Accept or decline in the Bhutan NDI app",
+  waitingTitle: "Accept or decline in the {brand} app",
   waitingBody: "The app didn't open or didn't bring you back? To try again, start from {host}.",
   returnedTitle: "All done here",
   returnedBody: "Your service should have opened in another tab. If it didn't, return to {host}.",
+  closeTab: "You can close this tab.",
 
   doneTitle: "Done",
   returningBody: "Returning you to {host}…",
@@ -132,11 +135,10 @@ const en: Messages = {
   failedTitle: "We could not complete the check",
   failedBody: "The check did not finish. To try again, start from {host}.",
   expiredTitle: "This request has expired",
-  expiredBody: "Each request is only valid for a limited time. To try again, start from {host}.",
+  expiredBody: "Requests are only valid for a short time. To try again, start from {host}.",
   startAgainAt: "Start again at {host}",
-  cancelReturn: "Cancel and return to {host}",
   timedOutTitle: "You did not approve in time",
-  timedOutBody: "The request was not answered in time. To try again, start from {host}.",
+  timedOutBody: "Requests are only valid for a short time. To try again, start from {host}.",
   notFoundTitle: "This request is no longer available",
   notFoundBody: "This link has already been used, or it is too old. To try again, start from the service you were using.",
   goneBody: "If you approved it in the app, continue at {host}. If not, start again from there.",
@@ -151,28 +153,29 @@ const en: Messages = {
 const dz: Messages = {
   languageLabel: "སྐད་ཡིག",
   langShort: en.langShort,
-  logoAlt: "Bhutan NDI ཝོ་ལེཊི།",
+  logoAlt: "Bhutan NDI གློག་རིམ།",
   returnLine: "ཁྱོད་ {host} ལུ་ ལོག་འོང་།",
 
-  continueTitle: "{brand} ཝོ་ལེཊི་ཐོག་ལས་ འཕྲོ་མཐུད།",
+  continueTitle: "{brand} གློག་རིམ་ཐོག་ལས་ འཕྲོ་མཐུད།",
   continue: "འཕྲོ་མཐུད།",
-  opening: "Bhutan NDI ཝོ་ལེཊི་ ཁ་ཕྱེ་དོ།",
-  walletDidNotOpen: "ཝོ་ལེཊི་ ཁ་མ་ཕྱེ།",
+  opening: "Bhutan NDI གློག་རིམ་ ཁ་ཕྱེ་དོ།",
+  walletDidNotOpen: "གློག་རིམ་ ཁ་མ་ཕྱེ།",
   tryAgain: "ལོག་འབད་རྩོལ་བསྐྱེད།",
   useQr: "དེ་འབདཝ་ད་ QR ཨང་རྟགས་ ལག་ལེན་འཐབ།",
   hideQr: "QR ཨང་རྟགས་ སྦ།",
 
-  scanTitle: "{brand} ཝོ་ལེཊི་གིས་ སྐེན་འབད།",
-  stepOpenWallet: "ཁྱོད་ཀྱི་ བརྒྱུད་འཕྲིན་ཐོག་ Bhutan NDI ཝོ་ལེཊི་ ཁ་ཕྱེ།",
+  scanTitle: "{brand} གློག་རིམ་གྱིས་ སྐེན་འབད།",
+  stepOpenWallet: "ཁྱོད་ཀྱི་ བརྒྱུད་འཕྲིན་ཐོག་ Bhutan NDI གློག་རིམ་ ཁ་ཕྱེ།",
   stepTapScan: "སྐེན་གྱི་ཨེབ་རྟ {scan} ལུ་ ཨེབ་སྟེ་ QR ཨང་རྟགས་འདི་ སྐེན་འབད།",
   scanButtonAlt: "སྐེན།",
-  qrTitle: "Bhutan NDI ཝོ་ལེཊི་གིས་ སྐེན་འབད།",
-  openOnThisPhone: "བརྒྱུད་འཕྲིན་འདི་ཐོག་ཨིན་ན? གློག་རིམ་ ཁ་ཕྱེ།",
+  qrTitle: "Bhutan NDI གློག་རིམ་གྱིས་ སྐེན་འབད།",
+  usingThisDevice: "བརྒྱུད་འཕྲིན་ ཡང་ན་ ཊེབ་ལེཊི་འདི་ཐོག་ཨིན་ན?",
+  openNdi: "Bhutan NDI ཁ་ཕྱེ།",
 
   scanned: "སྐེན་འབད་ཡི།",
   scannedBody: "ཁྱོད་ཀྱི་ Bhutan NDI གློག་རིམ་ནང་ ཁས་ལེན་ ཡང་ན་ ཁས་མ་ལེན་འབད།",
 
-  noApp: "Bhutan NDI ཝོ་ལེཊི་ མེད་ག? {download}",
+  noApp: "Bhutan NDI གློག་རིམ་ མེད་ག? {download}",
   downloadNow: "ད་ལྟོ་ ཕབ་ལེན་འབད།",
   getItOnGooglePlay: en.getItOnGooglePlay,
   downloadOnAppStore: en.downloadOnAppStore,
@@ -182,10 +185,11 @@ const dz: Messages = {
   loadingTitle: "སྐར་མ་ཅིག་ བསྒུག",
   loadingBody: "ཁྱོད་ཀྱི་ཞུ་བ་ གྲ་སྒྲིག་འབད་དོ།",
 
-  waitingTitle: "Bhutan NDI གློག་རིམ་ནང་ ཁས་ལེན་ ཡང་ན་ ཁས་མ་ལེན་འབད།",
+  waitingTitle: "{brand} གློག་རིམ་ནང་ ཁས་ལེན་ ཡང་ན་ ཁས་མ་ལེན་འབད།",
   waitingBody: "གློག་རིམ་ ཁ་མ་ཕྱེ་ ཡང་ན་ ཁྱོད་ ལོག་མ་གཏང་ཡི་ག? ལོག་འབད་རྩོལ་བསྐྱེད་ནིའི་དོན་ལུ་ {host} ལས་ འགོ་བཙུགས།",
   returnedTitle: "ནཱ་ལུ་ ཚར་ཡི།",
   returnedBody: "ཁྱོད་ཀྱི་ ཞབས་ཏོག་ ཤོག་ཁྲམ་གཞན་ཅིག་ནང་ ཁ་ཕྱེ་དགོཔ་ཨིན། མ་ཕྱེ་བ་ཅིན་ {host} ལུ་ལོག",
+  closeTab: "ཤོག་ཁྲམ་འདི་ ཁ་བསྡམ་ཆོག",
 
   doneTitle: "ཚར་ཡི།",
   returningBody: "ཁྱོད་ {host} ལུ་ ལོག་གཏང་དོ།",
@@ -198,9 +202,8 @@ const dz: Messages = {
   expiredTitle: "ཞུ་བ་འདི་ དུས་ཡོལ་ཡི།",
   expiredBody: "ཞུ་བ་རེ་རེ་ དུས་ཚོད་ཚད་ཡོད་ཅིག་གི་རིང་རྐྱངམ་ཅིག་ ནུས་ཅན་ཨིན། ལོག་འབད་རྩོལ་བསྐྱེད་ནིའི་དོན་ལུ་ {host} ལས་ འགོ་བཙུགས།",
   startAgainAt: "{host} ལུ་ ལོག་སྟེ་ འགོ་བཙུགས།",
-  cancelReturn: "ཆ་མེད་གཏང་སྟེ་ {host} ལུ་ལོག",
   timedOutTitle: "ཁྱོད་ཀྱིས་ དུས་ཚོད་ནང་ ཆོག་མཆན་མ་བྱིན།",
-  timedOutBody: "ཞུ་བ་ལུ་ དུས་ཚོད་ནང་ ལན་མ་བྱིན། ལོག་འབད་རྩོལ་བསྐྱེད་ནིའི་དོན་ལུ་ {host} ལས་ འགོ་བཙུགས།",
+  timedOutBody: "ཞུ་བ་རེ་རེ་ དུས་ཚོད་ཚད་ཡོད་ཅིག་གི་རིང་རྐྱངམ་ཅིག་ ནུས་ཅན་ཨིན། ལོག་འབད་རྩོལ་བསྐྱེད་ནིའི་དོན་ལུ་ {host} ལས་ འགོ་བཙུགས།",
   notFoundTitle: "ཞུ་བ་འདི་ ད་ལྟོ་ མིན་འདུག",
   notFoundBody: "འབྲེལ་མཐུད་འདི་ ལག་ལེན་འཐབ་ཚར་ཡི་ ཡང་ན་ རྙིངམ་ཨིན། ལོག་འབད་རྩོལ་བསྐྱེད་ནིའི་དོན་ལུ་ ཁྱོད་ཀྱིས་ ལག་ལེན་འཐབ་མི་ ཞབས་ཏོག་ལས་ འགོ་བཙུགས།",
   goneBody: "གློག་རིམ་ནང་ ཆོག་མཆན་བྱིན་ཡོད་པ་ཅིན་ {host} ལུ་ འཕྲོ་མཐུད། མེད་པ་ཅིན་ དེ་ལས་ ལོག་སྟེ་ འགོ་བཙུགས།",

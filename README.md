@@ -49,7 +49,7 @@ Behaviour (decision log wins over the solution design):
   | declined | `error=declined` |
   | failed | `error=failed` |
   | lost mid-flow, done with no code left | `error=unavailable` |
-  | "Cancel and return to &lt;host&gt;" (pending screens) | `error=cancelled` |
+  | "Return to &lt;host&gt;" while waiting after the deep link | `error=cancelled` |
 
   Relying parties should treat an unknown `error` like `failed`.
 - **Server time** (DL-021): when the platform sends `serverTime`, the page keeps `offset = serverTime − device time` and judges the deadline and polling stop on it. It stops offering `returnUrl` 5 s before `returnUrlExpiresAt` and falls back to the reason link. Without these fields it uses the device clock and no code expiry.
@@ -73,7 +73,7 @@ npm install
 npm run dev          # http://localhost:3000 (use -- -p 3001 if 3000 is taken)
 ```
 
-In `next dev`, `/config.json` is served from [config.dev.json](config.dev.json); `npm run serve` uses it too. The build carries no `config.json`: each environment deploys its own. Point `platformApiUrl` at a running platform api-gateway (ngotag-platform with the hosted-session and scanned changes):
+In `next dev`, `/config.json` is served from [config.dev.json](config.dev.json); `npm run serve` uses it too. The build carries no `config.json`: each environment deploys its own. Point `platformApiUrl` at a running platform api-gateway (ngotag-platform with the hosted-session and scanned changes). In `next dev` the page calls it through the same-origin path `/__platform`, which Next forwards there, so a deployed platform that allows only its own hosted-page origin (CORS) works from localhost too. Restart `next dev` after changing it:
 
 ```json
 { "platformApiUrl": "http://localhost:5000", "languageToggle": true }
@@ -164,7 +164,7 @@ Copyright 2026 Bhutan NDI. The code is licensed under the [Apache License 2.0](L
 
 The licence does not cover:
 
-- **the Bhutan NDI name, logos and icons**, including `public/figma/ndi-mark.png`, `public/figma/scan-button.png`, `public/qr-logo.png`, `public/ndi-mark-mint.png` and `src/app/favicon.ico`. The current tree has only the files the page needs; earlier commits also contain unused NDI artwork (such as the QR logo source), which is covered by the same exclusion. They identify Bhutan NDI and may not be used to suggest endorsement or to imitate the service.
+- **the Bhutan NDI name, logos and icons**, including `public/figma/ndi-mark.png`, `public/figma/scan-button.png`, `public/qr-logo.png` and `src/app/favicon.ico`. The current tree has only the files the page needs; earlier commits also contain unused NDI artwork (such as the QR logo source), which is covered by the same exclusion. They identify Bhutan NDI and may not be used to suggest endorsement or to imitate the service.
 - **the Noto Serif Tibetan font** (`src/fonts/noto-serif-tibetan.woff2`), under the SIL Open Font License 1.1;
 - **the store badges** (`public/badges/`), under Google's and Apple's badge guidelines.
 
