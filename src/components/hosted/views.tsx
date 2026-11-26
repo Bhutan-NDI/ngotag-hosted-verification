@@ -4,7 +4,7 @@ import { QRCodeSVG } from "qrcode.react";
 import type { ReactNode } from "react";
 import type { View } from "@/lib/flow";
 import { Fmt, useI18n } from "@/lib/i18n/client";
-import { reasonUrl, returnHref } from "@/lib/platform";
+import { returnHref } from "@/lib/platform";
 import type { DeviceMode, PublicSession, ReturnReason } from "@/lib/types";
 import {
   Asset,
@@ -279,23 +279,6 @@ function BackButton({ session, reason, label }: { session?: PublicSession; reaso
   );
 }
 
-/**
- * "Cancel and return to <host>" while waiting after the deep link: `error=cancelled` (DL-019(2)).
- * Not on the Ready, QR or Scanned screens, which have no cancel link in Figma.
- */
-function CancelLink({ session }: { session?: PublicSession }) {
-  const { t } = useI18n();
-  if (!session) return null;
-  return (
-    <a
-      href={reasonUrl(session.redirectUri, "cancelled")}
-      className="rounded text-[13px] font-medium text-muted underline underline-offset-2 hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
-    >
-      <Fmt text={t.cancelReturn} values={{ host: session.returnHost }} />
-    </a>
-  );
-}
-
 /* ------------------------------------------------------------------------ */
 /* Router                                                                    */
 /* ------------------------------------------------------------------------ */
@@ -325,10 +308,11 @@ export function StateView(props: StateViewProps) {
         <Status
           mode={mode}
           icon={<StatusIcon name="smartphone" />}
-          title={t.waitingTitle}
+          title={<Fmt text={t.waitingTitle} values={{ brand: <BrandName /> }} />}
           body={<Fmt text={t.waitingBody} values={{ host }} />}
         >
-          <CancelLink session={session} />
+          {/* Still pending, so no code yet: the citizen gave up waiting, `error=cancelled` (DL-019(2)). */}
+          <BackButton session={session} reason="cancelled" />
         </Status>
       );
 

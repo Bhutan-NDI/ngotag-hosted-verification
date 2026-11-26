@@ -72,7 +72,6 @@ export interface Messages {
   expiredTitle: string;
   expiredBody: string;
   startAgainAt: string;
-  cancelReturn: string;
   timedOutTitle: string;
   timedOutBody: string;
   notFoundTitle: string;
@@ -121,7 +120,7 @@ const en: Messages = {
   loadingTitle: "Just a moment",
   loadingBody: "Preparing your request.",
 
-  waitingTitle: "Accept or decline in the Bhutan NDI app",
+  waitingTitle: "Accept or decline in the {brand} app",
   waitingBody: "The app didn't open or didn't bring you back? To try again, start from {host}.",
   returnedTitle: "All done here",
   returnedBody: "Your service should have opened in another tab. If it didn't, return to {host}.",
@@ -138,9 +137,8 @@ const en: Messages = {
   expiredTitle: "This request has expired",
   expiredBody: "Requests are only valid for a short time. To try again, start from {host}.",
   startAgainAt: "Start again at {host}",
-  cancelReturn: "Cancel and return to {host}",
   timedOutTitle: "You did not approve in time",
-  timedOutBody: "The request was not answered in time. To try again, start from {host}.",
+  timedOutBody: "Requests are only valid for a short time. To try again, start from {host}.",
   notFoundTitle: "This request is no longer available",
   notFoundBody: "This link has already been used, or it is too old. To try again, start from the service you were using.",
   goneBody: "If you approved it in the app, continue at {host}. If not, start again from there.",
@@ -187,7 +185,7 @@ const dz: Messages = {
   loadingTitle: "སྐར་མ་ཅིག་ བསྒུག",
   loadingBody: "ཁྱོད་ཀྱི་ཞུ་བ་ གྲ་སྒྲིག་འབད་དོ།",
 
-  waitingTitle: "Bhutan NDI གློག་རིམ་ནང་ ཁས་ལེན་ ཡང་ན་ ཁས་མ་ལེན་འབད།",
+  waitingTitle: "{brand} གློག་རིམ་ནང་ ཁས་ལེན་ ཡང་ན་ ཁས་མ་ལེན་འབད།",
   waitingBody: "གློག་རིམ་ ཁ་མ་ཕྱེ་ ཡང་ན་ ཁྱོད་ ལོག་མ་གཏང་ཡི་ག? ལོག་འབད་རྩོལ་བསྐྱེད་ནིའི་དོན་ལུ་ {host} ལས་ འགོ་བཙུགས།",
   returnedTitle: "ནཱ་ལུ་ ཚར་ཡི།",
   returnedBody: "ཁྱོད་ཀྱི་ ཞབས་ཏོག་ ཤོག་ཁྲམ་གཞན་ཅིག་ནང་ ཁ་ཕྱེ་དགོཔ་ཨིན། མ་ཕྱེ་བ་ཅིན་ {host} ལུ་ལོག",
@@ -204,9 +202,8 @@ const dz: Messages = {
   expiredTitle: "ཞུ་བ་འདི་ དུས་ཡོལ་ཡི།",
   expiredBody: "ཞུ་བ་རེ་རེ་ དུས་ཚོད་ཚད་ཡོད་ཅིག་གི་རིང་རྐྱངམ་ཅིག་ ནུས་ཅན་ཨིན། ལོག་འབད་རྩོལ་བསྐྱེད་ནིའི་དོན་ལུ་ {host} ལས་ འགོ་བཙུགས།",
   startAgainAt: "{host} ལུ་ ལོག་སྟེ་ འགོ་བཙུགས།",
-  cancelReturn: "ཆ་མེད་གཏང་སྟེ་ {host} ལུ་ལོག",
   timedOutTitle: "ཁྱོད་ཀྱིས་ དུས་ཚོད་ནང་ ཆོག་མཆན་མ་བྱིན།",
-  timedOutBody: "ཞུ་བ་ལུ་ དུས་ཚོད་ནང་ ལན་མ་བྱིན། ལོག་འབད་རྩོལ་བསྐྱེད་ནིའི་དོན་ལུ་ {host} ལས་ འགོ་བཙུགས།",
+  timedOutBody: "ཞུ་བ་རེ་རེ་ དུས་ཚོད་ཚད་ཡོད་ཅིག་གི་རིང་རྐྱངམ་ཅིག་ ནུས་ཅན་ཨིན། ལོག་འབད་རྩོལ་བསྐྱེད་ནིའི་དོན་ལུ་ {host} ལས་ འགོ་བཙུགས།",
   notFoundTitle: "ཞུ་བ་འདི་ ད་ལྟོ་ མིན་འདུག",
   notFoundBody: "འབྲེལ་མཐུད་འདི་ ལག་ལེན་འཐབ་ཚར་ཡི་ ཡང་ན་ རྙིངམ་ཨིན། ལོག་འབད་རྩོལ་བསྐྱེད་ནིའི་དོན་ལུ་ ཁྱོད་ཀྱིས་ ལག་ལེན་འཐབ་མི་ ཞབས་ཏོག་ལས་ འགོ་བཙུགས།",
   goneBody: "གློག་རིམ་ནང་ ཆོག་མཆན་བྱིན་ཡོད་པ་ཅིན་ {host} ལུ་ འཕྲོ་མཐུད། མེད་པ་ཅིན་ དེ་ལས་ ལོག་སྟེ་ འགོ་བཙུགས།",

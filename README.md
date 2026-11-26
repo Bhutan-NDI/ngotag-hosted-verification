@@ -49,7 +49,7 @@ Behaviour (decision log wins over the solution design):
   | declined | `error=declined` |
   | failed | `error=failed` |
   | lost mid-flow, done with no code left | `error=unavailable` |
-  | "Cancel and return to &lt;host&gt;" (waiting after the deep link) | `error=cancelled` |
+  | "Return to &lt;host&gt;" while waiting after the deep link | `error=cancelled` |
 
   Relying parties should treat an unknown `error` like `failed`.
 - **Server time** (DL-021): when the platform sends `serverTime`, the page keeps `offset = serverTime − device time` and judges the deadline and polling stop on it. It stops offering `returnUrl` 5 s before `returnUrlExpiresAt` and falls back to the reason link. Without these fields it uses the device clock and no code expiry.
