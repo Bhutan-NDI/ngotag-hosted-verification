@@ -108,7 +108,7 @@ export function NdiMark() {
 }
 
 export function BrandName() {
-  return <span className="text-brand">Bhutan NDI</span>;
+  return <span className="text-mint">Bhutan NDI</span>;
 }
 
 /** EN | རྫོང་ཁ segmented switch, top-right of the card. Hidden when ENABLE_LANGUAGE_TOGGLE=false. */

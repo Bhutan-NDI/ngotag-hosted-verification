@@ -139,8 +139,8 @@ function MobileConnect({ view, session, onOpenWallet, onShowQr, onHideQr }: Stat
   const stillOpening = view === "still-opening";
   const scanned = view === "scanned";
   const qrOpen = view === "qr" || scanned;
-  // Figma: the return line shows on Ready and QR shown only.
-  const showReturn = view === "ready" || view === "qr";
+  // Figma 3, 4, 8: the return line shows until the wallet has scanned (hidden in Figma 9).
+  const showReturn = !scanned;
 
   return (
     <ConnectCard mode="mobile">
